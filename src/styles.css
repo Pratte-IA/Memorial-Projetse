@@ -1,0 +1,159 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Projetse Design System
+ * Identidade técnica, sóbria e precisa.
+ * Base: branco/concreto. Institucional: verde escuro.
+ * Tipografia: Sora.
+ */
+
+@theme inline {
+  --font-sans: "Sora", system-ui, sans-serif;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Projetse palette */
+  --color-preto: var(--preto);
+  --color-brita: var(--brita);
+  --color-cinza: var(--cinza);
+  --color-inox: var(--inox);
+  --color-concreto: var(--concreto);
+  --color-verde-escuro: var(--verde-escuro);
+  --color-verde: var(--verde);
+  --color-verde-claro: var(--verde-claro);
+  --color-verde-apoio: var(--verde-apoio);
+  --color-ceu: var(--ceu);
+  --color-alerta: var(--alerta);
+  --color-atencao: var(--atencao);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  --radius: 0.5rem;
+
+  /* Projetse oficial */
+  --preto: oklch(0.235 0 0);
+  --brita: oklch(0.348 0 0);
+  --cinza: oklch(0.585 0 0);
+  --inox: oklch(0.720 0 0);
+  --concreto: oklch(0.860 0 0);
+  --verde-escuro: oklch(0.295 0.035 155);
+  --verde: oklch(0.370 0.045 155);
+  --verde-claro: oklch(0.555 0.075 150);
+  --verde-apoio: oklch(0.715 0.080 150);
+  --ceu: oklch(0.660 0.130 235);
+  --alerta: oklch(0.575 0.220 27);
+  --atencao: oklch(0.820 0.155 85);
+
+  /* Semantic mapping (light) */
+  --background: oklch(0.985 0 0);
+  --foreground: var(--preto);
+  --card: oklch(1 0 0);
+  --card-foreground: var(--preto);
+  --popover: oklch(1 0 0);
+  --popover-foreground: var(--preto);
+  --primary: var(--verde-escuro);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.955 0.005 150);
+  --secondary-foreground: var(--verde-escuro);
+  --muted: oklch(0.955 0 0);
+  --muted-foreground: var(--cinza);
+  --accent: oklch(0.945 0.015 150);
+  --accent-foreground: var(--verde-escuro);
+  --destructive: var(--alerta);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.910 0 0);
+  --input: oklch(0.910 0 0);
+  --ring: var(--verde);
+
+  /* Sidebar institucional verde escuro */
+  --sidebar: var(--verde-escuro);
+  --sidebar-foreground: oklch(0.935 0 0);
+  --sidebar-primary: var(--verde-claro);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.355 0.040 155);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.355 0.030 155);
+  --sidebar-ring: var(--verde-claro);
+}
+
+.dark {
+  --background: oklch(0.18 0.01 155);
+  --foreground: oklch(0.95 0 0);
+  --card: oklch(0.22 0.01 155);
+  --card-foreground: oklch(0.95 0 0);
+  --popover: oklch(0.22 0.01 155);
+  --popover-foreground: oklch(0.95 0 0);
+  --primary: var(--verde-claro);
+  --primary-foreground: oklch(0.15 0 0);
+  --secondary: oklch(0.28 0.02 155);
+  --secondary-foreground: oklch(0.95 0 0);
+  --muted: oklch(0.26 0.01 155);
+  --muted-foreground: oklch(0.70 0 0);
+  --accent: oklch(0.30 0.03 155);
+  --accent-foreground: oklch(0.95 0 0);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 15%);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html, body {
+    font-family: "Sora", system-ui, sans-serif;
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4 {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+}
+
+@layer utilities {
+  .text-mono-tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
