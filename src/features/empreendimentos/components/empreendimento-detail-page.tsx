@@ -8,7 +8,7 @@ import { DadosExtraidosTab } from "@/features/dados-extraidos/components/dados-e
 import { MemorialTab } from "@/features/memorial/components/memorial-tab";
 import { QuadroTecnicoTab } from "@/features/quadros-tecnicos/components/quadro-tecnico-tab";
 import { UnidadesTab } from "@/features/unidades/components/unidades-tab";
-import type { Empreendimento } from "@/lib/mock-data";
+import type { EmpreendimentoView } from "../types";
 import { fmtNum } from "@/lib/format";
 import { AlertTriangle, Building2, Download, Hash, Ruler, Sparkles, Users } from "lucide-react";
 
@@ -21,7 +21,7 @@ import { HistoricoTab } from "./historico-tab";
 import { VisaoGeralTab } from "./visao-geral-tab";
 
 interface EmpreendimentoDetailPageProps {
-  emp: Empreendimento;
+  emp: EmpreendimentoView;
 }
 
 export function EmpreendimentoDetailPage({ emp }: EmpreendimentoDetailPageProps) {

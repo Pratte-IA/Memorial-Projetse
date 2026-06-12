@@ -1,5 +1,12 @@
 import type { Empreendimento } from "@/lib/mock-data";
 
+import type {
+  IncorporadoraForm,
+  ImovelView,
+  PendenciaVisao,
+  Representante,
+} from "./types/detail-types";
+
 /** Item resumido para listagens e dashboard. */
 export interface EmpreendimentoListItem {
   id: number;
@@ -18,8 +25,15 @@ export interface EmpreendimentoListItem {
   unidades: number;
 }
 
-/** Alias do modelo usado na tela de detalhe (abas internas ainda parcialmente mock). */
-export type EmpreendimentoView = Empreendimento;
+/** Modelo completo da tela de detalhe com dados jurídicos e do imóvel. */
+export type EmpreendimentoView = Empreendimento & {
+  incorporadoraEndereco: IncorporadoraForm;
+  representantes: Representante[];
+  imovel: ImovelView;
+  areaPrivativaTotal: number;
+  areaComumTotal: number;
+  pendenciasAbertas: PendenciaVisao[];
+};
 
 export interface WizardTorre {
   nome: string;
@@ -27,6 +41,8 @@ export interface WizardTorre {
   unidadesPorPavimento: number;
   totalUnidades: number;
 }
+
+import type { DocumentoNbrExtraido } from "@/features/quadro-nbr/types";
 
 export interface CreateEmpreendimentoInput {
   organizationId: number;
@@ -36,6 +52,8 @@ export interface CreateEmpreendimentoInput {
     incorporadora: string;
     cnpj: string;
     representante: string;
+    incorporadoraEndereco: string;
+    socios: string[];
   };
   localizacao: {
     endereco: string;
@@ -63,6 +81,16 @@ export interface CreateEmpreendimentoInput {
     creaCau: string;
     observacoes: string;
   };
+  aprovacao: {
+    alvara: string;
+    dataAprovacao: string;
+  };
+}
+
+export interface CreateEmpreendimentoFromNbrInput {
+  documento: DocumentoNbrExtraido;
+  organizationId: number;
+  profileId: number;
 }
 
 export interface UpdateEmpreendimentoInput {

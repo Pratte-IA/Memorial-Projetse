@@ -1,4 +1,4 @@
-import type { ImovelMock, Representante } from "../types/detail-types";
+import type { ImovelView, Representante } from "../types/detail-types";
 
 export const REPRESENTANTE_VAZIO: Representante = {
   id: "",
@@ -31,7 +31,8 @@ export const REGIMES = [
   "Participação final nos aquestos",
 ];
 
-export const IMOVEL_MOCK: ImovelMock = {
+/** Dados de demonstração — não usar na tela de detalhe de empreendimentos reais. */
+export const IMOVEL_MOCK: ImovelView = {
   loteNumero: "13",
   loteExtenso: "treze",
   quadraNumero: "4",

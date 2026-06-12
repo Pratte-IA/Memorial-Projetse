@@ -1,12 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
+  createEmpreendimentoFromNbr,
   createEmpreendimentoFromWizard,
   fetchEmpreendimentoDetail,
   fetchEmpreendimentosList,
   updateEmpreendimentoBasico,
 } from "./api";
-import type { CreateEmpreendimentoInput, UpdateEmpreendimentoInput } from "./types";
+import type {
+  CreateEmpreendimentoFromNbrInput,
+  CreateEmpreendimentoInput,
+  UpdateEmpreendimentoInput,
+} from "./types";
 
 export const empreendimentosQueryKey = ["empreendimentos", "list"] as const;
 
@@ -30,6 +35,18 @@ export function useCreateEmpreendimento() {
 
   return useMutation({
     mutationFn: (input: CreateEmpreendimentoInput) => createEmpreendimentoFromWizard(input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: empreendimentosQueryKey });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard", "indicators"] });
+    },
+  });
+}
+
+export function useCreateEmpreendimentoFromNbr() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: CreateEmpreendimentoFromNbrInput) => createEmpreendimentoFromNbr(input),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: empreendimentosQueryKey });
       void queryClient.invalidateQueries({ queryKey: ["dashboard", "indicators"] });

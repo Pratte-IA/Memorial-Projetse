@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/features/auth/use-auth";
 import { SectionTitle } from "@/features/empreendimentos/components/detail-ui";
 import type { Empreendimento } from "@/lib/mock-data";
-import { fmtNum } from "@/lib/format";
+import { fmtNum, formatLoteQuadra } from "@/lib/format";
 import { ArrowRight, CheckCircle2, FileText, Loader2 } from "lucide-react";
 
 import { CAMPO_LABELS } from "../seed-template";
@@ -274,7 +274,10 @@ export function DadosExtraidosTab({ emp, empreendimentoId, onConcluir }: DadosEx
             <FonteLinha label="Incorporadora" value={emp.incorporadora} mono={false} />
             <FonteLinha label="CNPJ" value={emp.cnpj} />
             <FonteLinha label="Endereço" value={emp.endereco} mono={false} />
-            <FonteLinha label="Lote / Quadra" value={`${emp.lote} / ${emp.quadra}`} />
+            <FonteLinha
+              label="Lote / Quadra"
+              value={formatLoteQuadra(emp.lote, emp.quadra)}
+            />
             <FonteLinha label="Matrícula" value={emp.matricula} />
           </FonteSecao>
 

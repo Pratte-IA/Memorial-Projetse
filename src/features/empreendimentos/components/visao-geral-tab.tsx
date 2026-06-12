@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,45 +15,38 @@ import {
   Trash2,
   UserCircle2,
 } from "lucide-react";
-import type { Empreendimento } from "@/lib/mock-data";
-import { fmtArea, fmtNum } from "@/lib/format";
-import { IMOVEL_MOCK } from "../constants/detail-mocks";
-import type { IncorporadoraForm, Representante } from "../types/detail-types";
+import { fmtArea, fmtNum, formatEstadoUf, formatLoteQuadra } from "@/lib/format";
+
 import { REPRESENTANTE_VAZIO } from "../constants/detail-mocks";
+import type { EmpreendimentoView } from "../types";
+import type { IncorporadoraForm, Representante } from "../types/detail-types";
+import {
+  DadosGeraisModal,
+  dadosGeraisFromEmp,
+  dadosGeraisToDisplay,
+  type DadosGeraisForm,
+} from "./dados-gerais-modal";
 import { Grid, Info, Pendencia, SectionTitle } from "./detail-ui";
 import { RepresentanteModal } from "./representante-modal";
 
-export function VisaoGeralTab({ emp }: { emp: Empreendimento }) {
-  const [incorporadora, setIncorporadora] = useState<IncorporadoraForm>({
-    razaoSocial: emp.incorporadora,
-    cnpj: emp.cnpj,
-    rua: "Rua Rio de Janeiro",
-    numero: "1101",
-    cep: "85.801-030",
-    bairro: "Centro",
-    cidade: emp.cidade,
-    estado: emp.uf,
-  });
+export function VisaoGeralTab({ emp }: { emp: EmpreendimentoView }) {
+  const [dadosGerais, setDadosGerais] = useState<DadosGeraisForm>(dadosGeraisFromEmp(emp));
+  const dados = dadosGeraisToDisplay(dadosGerais);
+  const empreendimentoId = Number(emp.id);
 
-  const [representantes, setRepresentantes] = useState<Representante[]>([
-    {
-      id: "rep-1",
-      nome: "Ivan Carlos Riedi",
-      cpf: "040.810.579-82",
-      rg: "6.473.421-0 SSP/PR",
-      estadoCivil: "Casado(a)",
-      regimeComunhao: "Separação total de bens",
-      rua: "Rua Rio de Janeiro",
-      numero: "1101",
-      cep: "85.801-030",
-      bairro: "Centro",
-      cidade: "Cascavel",
-      estado: "PR",
-    },
-  ]);
+  const [incorporadora, setIncorporadora] = useState<IncorporadoraForm>(emp.incorporadoraEndereco);
+  const [representantes, setRepresentantes] = useState<Representante[]>(emp.representantes);
+  const imovel = emp.imovel;
 
   const [editando, setEditando] = useState<Representante | null>(null);
   const [modalAberto, setModalAberto] = useState(false);
+  const [dadosGeraisModalAberto, setDadosGeraisModalAberto] = useState(false);
+
+  useEffect(() => {
+    setDadosGerais(dadosGeraisFromEmp(emp));
+    setIncorporadora(emp.incorporadoraEndereco);
+    setRepresentantes(emp.representantes);
+  }, [emp]);
 
   const abrirNovo = () => {
     setEditando({ ...REPRESENTANTE_VAZIO, id: `rep-${Date.now()}` });
@@ -100,22 +93,36 @@ export function VisaoGeralTab({ emp }: { emp: Empreendimento }) {
       });
   });
 
+  const pendenciasVisao = [...emp.pendenciasAbertas, ...pendenciasJuridicas];
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
       <div className="lg:col-span-2 space-y-5">
         <Card className="p-6 border-border shadow-none space-y-5">
-          <SectionTitle icon={MapPin}>Dados gerais</SectionTitle>
+          <div className="flex items-center justify-between">
+            <SectionTitle icon={MapPin}>Dados gerais</SectionTitle>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setDadosGeraisModalAberto(true)}
+              disabled={!empreendimentoId}
+            >
+              <Pencil className="h-3.5 w-3.5" /> Editar
+            </Button>
+          </div>
           <Grid>
-            <Info label="Nome" value={emp.nome} />
-            <Info label="Endereço" value={emp.endereco} />
-            <Info label="Cidade / UF" value={`${emp.cidade}/${emp.uf}`} />
-            <Info label="Lote / Quadra" value={`${emp.lote} / ${emp.quadra}`} />
-            <Info label="Matrícula" value={emp.matricula} />
-            <Info label="Área do terreno" value={`${fmtNum(emp.areaTerreno, 2)} m²`} />
+            <Info label="Nome" value={dados.nome} />
+            <Info label="Endereço" value={dados.endereco} />
+            <Info label="Cidade / UF" value={`${dados.cidade}/${dados.uf}`} />
+            <Info label="Lote / Quadra" value={formatLoteQuadra(dados.lote, dados.quadra)} />
+            <Info label="Matrícula" value={dados.matricula} />
+            <Info
+              label="Área do terreno"
+              value={emp.areaTerreno > 0 ? `${fmtNum(emp.areaTerreno, 2)} m²` : "—"}
+            />
           </Grid>
         </Card>
 
-        {/* Incorporadora */}
         <Card className="p-6 border-border shadow-none space-y-5">
           <div className="flex items-center justify-between">
             <SectionTitle icon={Briefcase}>Incorporadora</SectionTitle>
@@ -130,19 +137,13 @@ export function VisaoGeralTab({ emp }: { emp: Empreendimento }) {
           <Grid>
             <Info label="Razão social" value={incorporadora.razaoSocial} />
             <Info label="CNPJ" value={incorporadora.cnpj || "—"} />
-            <Info
-              label="Cidade / UF"
-              value={`${incorporadora.cidade || "—"}${incorporadora.estado ? "/" + incorporadora.estado : ""}`}
-            />
-            <Info label="Rua" value={incorporadora.rua || "—"} />
-            <Info label="Número" value={incorporadora.numero || "—"} />
-            <Info label="CEP" value={incorporadora.cep || "—"} />
-            <Info label="Bairro" value={incorporadora.bairro || "—"} />
+            <div className="md:col-span-2">
+              <Info label="Endereço" value={incorporadora.endereco || "—"} />
+            </div>
           </Grid>
 
           <div className="h-px bg-border" />
 
-          {/* Representantes legais */}
           <div className="flex items-center justify-between">
             <SectionTitle icon={UserCircle2}>Representantes legais</SectionTitle>
             <Button size="sm" onClick={abrirNovo}>
@@ -221,7 +222,6 @@ export function VisaoGeralTab({ emp }: { emp: Empreendimento }) {
           )}
         </Card>
 
-        {/* Propriedade e Localização do Imóvel */}
         <Card className="p-6 border-border shadow-none space-y-5">
           <div className="flex items-center justify-between">
             <SectionTitle icon={MapPin}>Propriedade e localização do imóvel</SectionTitle>
@@ -234,22 +234,25 @@ export function VisaoGeralTab({ emp }: { emp: Empreendimento }) {
             </Button>
           </div>
           <Grid>
-            <Info label="Lote (nº)" value={IMOVEL_MOCK.loteNumero} />
-            <Info label="Lote (por extenso)" value={IMOVEL_MOCK.loteExtenso} />
-            <Info label="Quadra (nº)" value={IMOVEL_MOCK.quadraNumero} />
-            <Info label="Quadra (por extenso)" value={IMOVEL_MOCK.quadraExtenso} />
-            <Info label="Loteamento" value={IMOVEL_MOCK.loteamento} />
+            <Info label="Lote (nº)" value={imovel.loteNumero} />
+            <Info label="Lote (por extenso)" value={imovel.loteExtenso} />
+            <Info label="Quadra (nº)" value={imovel.quadraNumero} />
+            <Info label="Quadra (por extenso)" value={imovel.quadraExtenso} />
+            <Info label="Loteamento" value={imovel.loteamento} />
+            <Info label="Cidade / Comarca" value={`${imovel.cidade} / ${imovel.comarca}`} />
             <Info
-              label="Cidade / Comarca"
-              value={`${IMOVEL_MOCK.cidade} / ${IMOVEL_MOCK.comarca}`}
+              label="Estado"
+              value={formatEstadoUf(
+                imovel.estado === "—" ? "" : imovel.estado,
+                imovel.estadoExtenso === "—" ? "" : imovel.estadoExtenso,
+              )}
             />
-            <Info label="Estado" value={`${IMOVEL_MOCK.estado} — ${IMOVEL_MOCK.estadoExtenso}`} />
-            <Info label="Área do terreno" value={`${IMOVEL_MOCK.areaNumero} m²`} />
-            <Info label="Área (por extenso)" value={IMOVEL_MOCK.areaExtenso} />
-            <Info label="Benfeitorias" value={IMOVEL_MOCK.benfeitorias} />
-            <Info label="Matrícula (nº)" value={IMOVEL_MOCK.matriculaNumero} />
-            <Info label="Matrícula (por extenso)" value={IMOVEL_MOCK.matriculaExtenso} />
-            <Info label="Cartório de registro" value={IMOVEL_MOCK.cartorio} />
+            <Info label="Área do terreno" value={`${imovel.areaNumero} m²`} />
+            <Info label="Área (por extenso)" value={imovel.areaExtenso} />
+            <Info label="Benfeitorias" value={imovel.benfeitorias} />
+            <Info label="Matrícula (nº)" value={imovel.matriculaNumero} />
+            <Info label="Matrícula (por extenso)" value={imovel.matriculaExtenso} />
+            <Info label="Cartório de registro" value={imovel.cartorio} />
           </Grid>
 
           <div className="h-px bg-border" />
@@ -264,28 +267,34 @@ export function VisaoGeralTab({ emp }: { emp: Empreendimento }) {
               <Pencil className="h-3.5 w-3.5" /> Editar
             </Button>
           </div>
-          <div className="border border-border rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
-                <tr>
-                  <th className="text-left px-3 py-2 font-medium">Direção</th>
-                  <th className="text-left px-3 py-2 font-medium">Confrontante</th>
-                  <th className="text-left px-3 py-2 font-medium text-mono-tabular">Medida</th>
-                  <th className="text-left px-3 py-2 font-medium text-mono-tabular">Azimute</th>
-                </tr>
-              </thead>
-              <tbody>
-                {IMOVEL_MOCK.confrontacoes.map((c) => (
-                  <tr key={c.direcao} className="border-t border-border">
-                    <td className="px-3 py-2 font-medium">{c.direcao}</td>
-                    <td className="px-3 py-2 text-foreground/90">{c.confrontante}</td>
-                    <td className="px-3 py-2 text-mono-tabular">{c.medida}</td>
-                    <td className="px-3 py-2 text-mono-tabular">{c.azimute}</td>
+          {imovel.confrontacoes.length === 0 ? (
+            <div className="border border-dashed border-border rounded-lg p-6 text-center text-sm text-muted-foreground">
+              Nenhuma confrontação cadastrada.
+            </div>
+          ) : (
+            <div className="border border-border rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-medium">Direção</th>
+                    <th className="text-left px-3 py-2 font-medium">Confrontante</th>
+                    <th className="text-left px-3 py-2 font-medium text-mono-tabular">Medida</th>
+                    <th className="text-left px-3 py-2 font-medium text-mono-tabular">Azimute</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {imovel.confrontacoes.map((c) => (
+                    <tr key={c.direcao} className="border-t border-border">
+                      <td className="px-3 py-2 font-medium">{c.direcao}</td>
+                      <td className="px-3 py-2 text-foreground/90">{c.confrontante}</td>
+                      <td className="px-3 py-2 text-mono-tabular">{c.medida}</td>
+                      <td className="px-3 py-2 text-mono-tabular">{c.azimute}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
 
         <Card className="p-6 border-border shadow-none space-y-5">
@@ -307,23 +316,29 @@ export function VisaoGeralTab({ emp }: { emp: Empreendimento }) {
             <Info label="Pavimentos" value={`${emp.pavimentos}`} />
             <Info label="Unidades" value={`${emp.unidades}`} />
             <Info label="Vagas" value={`${emp.vagas}`} />
-            <Info label="Área privativa total" value={fmtArea(emp.areaTerreno * 0.65)} />
-            <Info label="Área comum total" value={fmtArea(emp.areaTerreno * 0.35)} />
+            <Info
+              label="Área privativa total"
+              value={emp.areaPrivativaTotal > 0 ? fmtArea(emp.areaPrivativaTotal) : "—"}
+            />
+            <Info
+              label="Área comum total"
+              value={emp.areaComumTotal > 0 ? fmtArea(emp.areaComumTotal) : "—"}
+            />
           </Grid>
         </Card>
       </div>
 
       <Card className="p-6 border-border shadow-none space-y-4 h-fit">
         <SectionTitle icon={AlertTriangle}>Pendências</SectionTitle>
-        <ul className="space-y-2.5">
-          <Pendencia tone="alerta" texto="Confrontações faltantes em 4 unidades da Torre 02" />
-          <Pendencia tone="atencao" texto="Baixa confiança na extração da área do alvará" />
-          <Pendencia tone="atencao" texto="Seção 'Convenção Condominial' ainda não gerada" />
-          <Pendencia tone="ceu" texto="Revisar fração ideal — divergência de 0,001%" />
-          {pendenciasJuridicas.map((p, i) => (
-            <Pendencia key={`j-${i}`} tone={p.tone} texto={p.texto} />
-          ))}
-        </ul>
+        {pendenciasVisao.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhuma pendência aberta.</p>
+        ) : (
+          <ul className="space-y-2.5">
+            {pendenciasVisao.map((p, i) => (
+              <Pendencia key={`p-${i}`} tone={p.tone} texto={p.texto} />
+            ))}
+          </ul>
+        )}
         <div className="h-px bg-border" />
         <div>
           <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
@@ -344,6 +359,16 @@ export function VisaoGeralTab({ emp }: { emp: Empreendimento }) {
         representante={editando}
         onSalvar={salvar}
       />
+
+      {empreendimentoId > 0 && (
+        <DadosGeraisModal
+          open={dadosGeraisModalAberto}
+          onOpenChange={setDadosGeraisModalAberto}
+          empreendimentoId={empreendimentoId}
+          initial={dadosGerais}
+          onSalvo={setDadosGerais}
+        />
+      )}
     </div>
   );
 }

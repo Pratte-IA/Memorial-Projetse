@@ -39,6 +39,13 @@ interface QuadroTecnicoTabProps {
   onConcluir: () => void;
 }
 
+function isQuadroMimeAccepted(file: File): boolean {
+  const accepted = QUADRO_ACCEPTED_MIME.split(",").map((m) => m.trim());
+  if (accepted.includes(file.type)) return true;
+  const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+  return [".pdf", ".xlsx", ".xls", ".csv"].includes(ext);
+}
+
 function mapStatusToUi(
   quadro: QuadroTecnicoRecord | null | undefined,
   isProcessingLocally: boolean,
@@ -55,12 +62,17 @@ export function QuadroTecnicoTab({ emp, empreendimentoId, onConcluir }: QuadroTe
   const fileRef = useRef<HTMLInputElement>(null);
   const [etapa, setEtapa] = useState(0);
   const [processandoLocal, setProcessandoLocal] = useState(false);
+  const [arquivoPendente, setArquivoPendente] = useState<File | null>(null);
 
   const { data: quadro, isLoading, isError, refetch } = useLatestQuadroTecnico(empreendimentoId);
   const uploadMutation = useUploadQuadroTecnico(empreendimentoId);
   const processarMutation = useProcessarQuadroTecnico(empreendimentoId);
 
-  const estado = mapStatusToUi(quadro, processandoLocal || processarMutation.isPending);
+  const quadroAtual = quadro ?? uploadMutation.data ?? null;
+  const enviando = uploadMutation.isPending && arquivoPendente !== null;
+  const temArquivo = quadroAtual !== null || enviando;
+
+  const estado = mapStatusToUi(quadroAtual, processandoLocal || processarMutation.isPending);
   const concluido = estado === "concluido";
   const extraindo = estado === "extraindo";
 
@@ -85,8 +97,8 @@ export function QuadroTecnicoTab({ emp, empreendimentoId, onConcluir }: QuadroTe
   }, [extraindo]);
 
   const validateFile = (file: File): string | null => {
-    if (file.type !== QUADRO_ACCEPTED_MIME && !file.name.toLowerCase().endsWith(".pdf")) {
-      return "Envie apenas arquivos PDF.";
+    if (!isQuadroMimeAccepted(file)) {
+      return "Envie apenas arquivos PDF, XLSX, XLS ou CSV.";
     }
     if (file.size > MAX_QUADRO_FILE_BYTES) {
       return "O arquivo excede o limite de 50 MB.";
@@ -109,6 +121,7 @@ export function QuadroTecnicoTab({ emp, empreendimentoId, onConcluir }: QuadroTe
         return;
       }
 
+      setArquivoPendente(file);
       try {
         await uploadMutation.mutateAsync({
           file,
@@ -119,6 +132,8 @@ export function QuadroTecnicoTab({ emp, empreendimentoId, onConcluir }: QuadroTe
         toast.success("Quadro técnico enviado", { description: file.name });
       } catch {
         toast.error("Falha no upload", { description: "Verifique o arquivo e tente novamente." });
+      } finally {
+        setArquivoPendente(null);
       }
     },
     [empreendimentoId, membership, profile, uploadMutation],
@@ -137,12 +152,12 @@ export function QuadroTecnicoTab({ emp, empreendimentoId, onConcluir }: QuadroTe
   };
 
   const iniciarExtracao = async () => {
-    if (!quadro || !empreendimentoId || !membership) return;
+    if (!quadroAtual || !empreendimentoId || !membership) return;
 
     setProcessandoLocal(true);
     try {
       await processarMutation.mutateAsync({
-        quadroId: quadro.id,
+        quadroId: quadroAtual.id,
         empreendimentoId,
         organizationId: membership.organization_id,
         unidadesCount: emp.unidades,
@@ -210,10 +225,17 @@ export function QuadroTecnicoTab({ emp, empreendimentoId, onConcluir }: QuadroTe
       <Card className="lg:col-span-2 p-6 border-border shadow-none space-y-5">
         <div className="flex items-center justify-between">
           <SectionTitle icon={UploadCloud}>Upload do quadro técnico — NBR 12.721</SectionTitle>
-          <EstadoBadge estado={estado} />
+          {enviando ? (
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[var(--color-ceu)]/15 text-[var(--color-ceu)]">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Enviando...
+            </span>
+          ) : (
+            <EstadoBadge estado={estado} />
+          )}
         </div>
 
-        {estado === "vazio" && (
+        {estado === "vazio" && !enviando && (
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
@@ -222,18 +244,12 @@ export function QuadroTecnicoTab({ emp, empreendimentoId, onConcluir }: QuadroTe
             disabled={uploadMutation.isPending}
             className="w-full border-2 border-dashed border-border rounded-lg p-12 hover:border-primary hover:bg-muted/30 transition-colors text-center disabled:opacity-60"
           >
-            {uploadMutation.isPending ? (
-              <Loader2 className="h-10 w-10 text-muted-foreground mx-auto mb-3 animate-spin" />
-            ) : (
-              <UploadCloud
-                className="h-10 w-10 text-muted-foreground mx-auto mb-3"
-                strokeWidth={1.5}
-              />
-            )}
+            <UploadCloud
+              className="h-10 w-10 text-muted-foreground mx-auto mb-3"
+              strokeWidth={1.5}
+            />
             <div className="text-sm font-medium">
-              {uploadMutation.isPending
-                ? "Enviando arquivo..."
-                : "Arraste o PDF do quadro técnico ou clique para enviar"}
+              Arraste o PDF do quadro técnico ou clique para enviar
             </div>
             <div className="text-xs text-muted-foreground mt-1">
               PDF · até 50 MB · padrão NBR 12.721
@@ -241,29 +257,45 @@ export function QuadroTecnicoTab({ emp, empreendimentoId, onConcluir }: QuadroTe
           </button>
         )}
 
-        {quadro && estado !== "vazio" && (
+        {temArquivo && (
           <div className="space-y-4">
             <div className="flex items-center gap-4 p-4 border border-border rounded-lg bg-muted/30">
               <div className="h-12 w-10 bg-card border border-border rounded flex items-center justify-center shrink-0">
-                <FileType className="h-5 w-5 text-[var(--color-alerta)]" />
+                {enviando ? (
+                  <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />
+                ) : (
+                  <FileType className="h-5 w-5 text-[var(--color-alerta)]" />
+                )}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium truncate">{quadro.fileName}</div>
+                <div className="text-sm font-medium truncate">
+                  {quadroAtual?.fileName ?? arquivoPendente?.name}
+                </div>
                 <div className="text-xs text-muted-foreground mt-0.5">
-                  {formatFileSize(quadro.sizeBytes)} · enviado em{" "}
-                  {formatUploadedAt(quadro.createdAt)}
+                  {enviando ? (
+                    "Enviando arquivo..."
+                  ) : (
+                    <>
+                      {formatFileSize(quadroAtual?.sizeBytes)} · enviado em{" "}
+                      {quadroAtual ? formatUploadedAt(quadroAtual.createdAt) : "—"}
+                    </>
+                  )}
                 </div>
               </div>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={uploadMutation.isPending || extraindo}
-                onClick={() => fileRef.current?.click()}
-              >
-                <RefreshCw className="h-3.5 w-3.5" /> Substituir
-              </Button>
+              {!enviando && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={uploadMutation.isPending || extraindo}
+                  onClick={() => fileRef.current?.click()}
+                >
+                  <RefreshCw className="h-3.5 w-3.5" /> Substituir
+                </Button>
+              )}
             </div>
 
+            {quadroAtual && (
+              <>
             {(extraindo || concluido) && (
               <div>
                 <div className="flex items-center justify-between text-xs mb-1.5">
@@ -311,7 +343,9 @@ export function QuadroTecnicoTab({ emp, empreendimentoId, onConcluir }: QuadroTe
                     <h4 className="text-sm font-semibold">Resumo da extração</h4>
                   </div>
                   <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                    {quadro.processedAt ? formatUploadedAt(quadro.processedAt) : "Concluído"}
+                    {quadroAtual.processedAt
+                      ? formatUploadedAt(quadroAtual.processedAt)
+                      : "Concluído"}
                   </span>
                 </div>
 
@@ -387,6 +421,8 @@ export function QuadroTecnicoTab({ emp, empreendimentoId, onConcluir }: QuadroTe
                 </Button>
               )}
             </div>
+              </>
+            )}
           </div>
         )}
       </Card>
@@ -396,8 +432,8 @@ export function QuadroTecnicoTab({ emp, empreendimentoId, onConcluir }: QuadroTe
         <div className="mt-4 aspect-[3/4] bg-gradient-to-b from-muted to-card border border-border rounded-md flex flex-col items-center justify-center text-muted-foreground p-4">
           <FileType className="h-10 w-10 mb-3" strokeWidth={1.3} />
           <div className="text-xs text-center">
-            {quadro
-              ? `Arquivo armazenado: ${quadro.fileName}`
+            {quadroAtual || arquivoPendente
+              ? `Arquivo armazenado: ${quadroAtual?.fileName ?? arquivoPendente?.name}`
               : "Envie o arquivo para pré-visualizar"}
           </div>
         </div>

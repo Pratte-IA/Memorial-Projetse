@@ -1,20 +1,37 @@
+import {
+  mapDocumentoToDadosExtraidos,
+  mapDocumentoToUnidades,
+  mapDocumentoToWizardInput,
+  sumVagasSecao38,
+} from "@/features/quadro-nbr/mapper";
+import {
+  fmtNum,
+  normalizeLoteQuadraFields,
+  parseBrDate,
+  parseBrNumeric,
+  parseLoteQuadra,
+} from "@/lib/format";
+import { formatDateBr } from "./mappers";
+import { areaMetrosQuadradosPorExtenso } from "@/lib/numero-extenso";
 import { supabase } from "@/lib/supabase/client";
 
 import {
   mapRowToListItem,
   mapRowToView,
-  parseBrNumeric,
+  mapSociosFromCampos,
+  type EmpreendimentoDetailRowWithJoins,
   type EmpreendimentoRowWithJoins,
 } from "./mappers";
 import { DB_EMPREENDIMENTO_STATUS } from "./status";
 import type {
+  CreateEmpreendimentoFromNbrInput,
   CreateEmpreendimentoInput,
   EmpreendimentoListItem,
   EmpreendimentoView,
   UpdateEmpreendimentoInput,
 } from "./types";
 
-const EMPREENDIMENTO_SELECT = `
+const EMPREENDIMENTO_LIST_SELECT = `
   id,
   nome,
   cidade,
@@ -44,6 +61,80 @@ const EMPREENDIMENTO_SELECT = `
   )
 `;
 
+const EMPREENDIMENTO_DETAIL_SELECT = `
+  id,
+  nome,
+  cidade,
+  uf,
+  endereco,
+  lote,
+  quadra,
+  matricula,
+  status,
+  progresso,
+  pendencias_count,
+  updated_at,
+  incorporadoras (
+    razao_social,
+    cnpj,
+    endereco,
+    representantes_legais (
+      id,
+      nome,
+      cpf,
+      rg,
+      estado_civil,
+      regime_comunhao,
+      endereco
+    )
+  ),
+  profiles:responsavel_profile_id ( full_name ),
+  dados_tecnicos (
+    unidades,
+    torres,
+    pavimentos,
+    vagas,
+    area_terreno,
+    area_global,
+    area_privativa_total,
+    area_comum_total,
+    alvara,
+    data_aprovacao,
+    crea_cau,
+    art_rrt,
+    responsavel_tecnico
+  ),
+  imoveis (
+    lote_numero,
+    lote_extenso,
+    quadra_numero,
+    quadra_extenso,
+    loteamento,
+    cidade,
+    comarca,
+    uf,
+    estado_extenso,
+    area_numero,
+    area_extenso,
+    benfeitorias,
+    matricula_numero,
+    matricula_extenso,
+    cartorio,
+    imovel_confrontacoes (
+      direcao,
+      confrontante,
+      medida,
+      azimute,
+      ordem
+    )
+  ),
+  pendencias (
+    mensagem,
+    severidade,
+    status
+  )
+`;
+
 async function logAudit(
   organizationId: number,
   empreendimentoId: number,
@@ -61,32 +152,49 @@ async function logAudit(
   if (error) throw error;
 }
 
+function incorporadoraEnderecoJson(endereco: string | undefined): { texto: string } | null {
+  const texto = endereco?.trim();
+  return texto ? { texto } : null;
+}
+
 async function findOrCreateIncorporadora(
   organizationId: number,
   razaoSocial: string,
   cnpj: string,
+  endereco?: string,
 ): Promise<number> {
   const normalizedCnpj = cnpj.replace(/\D/g, "");
+  const enderecoJson = incorporadoraEnderecoJson(endereco);
 
   if (normalizedCnpj) {
     const { data: byCnpj } = await supabase
       .from("incorporadoras")
-      .select("id")
+      .select("id, endereco")
       .eq("organization_id", organizationId)
       .eq("cnpj", cnpj)
       .maybeSingle();
 
-    if (byCnpj) return byCnpj.id;
+    if (byCnpj) {
+      if (enderecoJson && !byCnpj.endereco) {
+        await supabase.from("incorporadoras").update({ endereco: enderecoJson }).eq("id", byCnpj.id);
+      }
+      return byCnpj.id;
+    }
   }
 
   const { data: byName } = await supabase
     .from("incorporadoras")
-    .select("id")
+    .select("id, endereco")
     .eq("organization_id", organizationId)
     .ilike("razao_social", razaoSocial)
     .maybeSingle();
 
-  if (byName) return byName.id;
+  if (byName) {
+    if (enderecoJson && !byName.endereco) {
+      await supabase.from("incorporadoras").update({ endereco: enderecoJson }).eq("id", byName.id);
+    }
+    return byName.id;
+  }
 
   const { data: created, error } = await supabase
     .from("incorporadoras")
@@ -94,6 +202,7 @@ async function findOrCreateIncorporadora(
       organization_id: organizationId,
       razao_social: razaoSocial,
       cnpj: cnpj || null,
+      endereco: enderecoJson,
     })
     .select("id")
     .single();
@@ -105,7 +214,7 @@ async function findOrCreateIncorporadora(
 export async function fetchEmpreendimentosList(): Promise<EmpreendimentoListItem[]> {
   const { data, error } = await supabase
     .from("empreendimentos")
-    .select(EMPREENDIMENTO_SELECT)
+    .select(EMPREENDIMENTO_LIST_SELECT)
     .order("updated_at", { ascending: false });
 
   if (error) throw error;
@@ -116,14 +225,113 @@ export async function fetchEmpreendimentosList(): Promise<EmpreendimentoListItem
 export async function fetchEmpreendimentoDetail(id: number): Promise<EmpreendimentoView | null> {
   const { data, error } = await supabase
     .from("empreendimentos")
-    .select(EMPREENDIMENTO_SELECT)
+    .select(EMPREENDIMENTO_DETAIL_SELECT)
     .eq("id", id)
     .maybeSingle();
 
   if (error) throw error;
   if (!data) return null;
 
-  return mapRowToView(data as EmpreendimentoRowWithJoins);
+  const view = mapRowToView(data as EmpreendimentoDetailRowWithJoins);
+
+  const { data: dadosFallback } = await supabase
+    .from("dados_extraidos")
+    .select("campo, valor")
+    .eq("empreendimento_id", id)
+    .in("campo", [
+      "projeto_area_terreno",
+      "incorporador_endereco",
+      "projeto_lote_quadra",
+      "projeto_alvara",
+      "projeto_data_aprovacao",
+      "rt_art",
+    ]);
+
+  for (const dado of dadosFallback ?? []) {
+    if (dado.campo === "projeto_area_terreno" && view.areaTerreno <= 0) {
+      const parsed = parseBrNumeric(dado.valor ?? "");
+      if (parsed !== null && parsed > 0) {
+        view.areaTerreno = parsed;
+        if (view.imovel.areaNumero === "—") {
+          view.imovel.areaNumero = fmtNum(parsed, 2);
+        }
+        if (view.imovel.areaExtenso === "—") {
+          view.imovel.areaExtenso = areaMetrosQuadradosPorExtenso(parsed);
+        }
+      }
+    }
+
+    if (
+      dado.campo === "incorporador_endereco" &&
+      (view.incorporadoraEndereco.endereco === "—" || !view.incorporadoraEndereco.endereco.trim())
+    ) {
+      const texto = dado.valor?.trim();
+      if (texto) view.incorporadoraEndereco.endereco = texto;
+    }
+
+    if (dado.campo === "projeto_lote_quadra" && dado.valor?.trim()) {
+      const parsed = parseLoteQuadra(dado.valor);
+      const normalized = normalizeLoteQuadraFields(parsed.lote, parsed.quadra);
+      const loteAtual = view.imovel.loteNumero;
+      const precisaNormalizar =
+        loteAtual === "—" || /quadra/i.test(loteAtual) || view.imovel.quadraNumero === "—";
+
+      if (precisaNormalizar) {
+        view.imovel.loteNumero = normalized.lote || "—";
+        view.imovel.quadraNumero = normalized.quadra || "—";
+        view.imovel.loteExtenso = normalized.loteExtenso || "—";
+        view.imovel.quadraExtenso = normalized.quadraExtenso || "—";
+        view.lote = normalized.lote || "—";
+        view.quadra = normalized.quadra || "—";
+      }
+    }
+
+    if (dado.campo === "projeto_alvara" && view.alvara === "—" && dado.valor?.trim()) {
+      view.alvara = dado.valor.trim();
+    }
+
+    if (dado.campo === "projeto_data_aprovacao" && view.dataAprovacao === "—" && dado.valor?.trim()) {
+      const iso = parseBrDate(dado.valor);
+      view.dataAprovacao = iso ? formatDateBr(iso) : dado.valor.trim();
+    }
+
+    if (dado.campo === "rt_art" && view.art === "—" && dado.valor?.trim()) {
+      view.art = dado.valor.trim();
+    }
+  }
+
+  if (view.vagas <= 0) {
+    const { data: preliminaresDados } = await supabase
+      .from("dados_extraidos")
+      .select("campo, valor")
+      .eq("empreendimento_id", id)
+      .eq("bloco", "preliminares");
+
+    const totalVagas = sumVagasSecao38(
+      (preliminaresDados ?? []).map((d) => ({ campo: d.campo, valor: d.valor ?? "" })),
+    );
+    if (totalVagas > 0) {
+      view.vagas = totalVagas;
+      await supabase
+        .from("dados_tecnicos")
+        .update({ vagas: totalVagas })
+        .eq("empreendimento_id", id);
+    }
+  }
+
+  if (view.representantes.length === 0) {
+    const { data: sociosDados } = await supabase
+      .from("dados_extraidos")
+      .select("campo, valor")
+      .eq("empreendimento_id", id)
+      .like("campo", "incorporador_socio_%")
+      .order("campo");
+
+    const socios = mapSociosFromCampos(sociosDados ?? []);
+    if (socios.length > 0) view.representantes = socios;
+  }
+
+  return view;
 }
 
 export async function createEmpreendimentoFromWizard(
@@ -133,11 +341,16 @@ export async function createEmpreendimentoFromWizard(
     input.organizationId,
     input.identificacao.incorporadora,
     input.identificacao.cnpj,
+    input.identificacao.incorporadoraEndereco,
   );
 
   const totalTorres = input.torres.length;
   const maxPavimentos =
     input.torres.length > 0 ? Math.max(...input.torres.map((t) => t.pavimentos)) : null;
+  const loteQuadra = normalizeLoteQuadraFields(
+    input.localizacao.lote,
+    input.localizacao.quadra,
+  );
 
   const { data: empreendimento, error: empError } = await supabase
     .from("empreendimentos")
@@ -148,8 +361,8 @@ export async function createEmpreendimentoFromWizard(
       cidade: input.localizacao.cidade,
       uf: input.localizacao.uf,
       endereco: input.localizacao.endereco,
-      lote: input.localizacao.lote,
-      quadra: input.localizacao.quadra,
+      lote: loteQuadra.lote || null,
+      quadra: loteQuadra.quadra || null,
       matricula: input.localizacao.matricula,
       responsavel_profile_id: input.profileId,
       status: DB_EMPREENDIMENTO_STATUS.dados_extraidos,
@@ -173,9 +386,55 @@ export async function createEmpreendimentoFromWizard(
     vagas: input.unidades.vagas,
     responsavel_tecnico: input.equipe.responsavel,
     crea_cau: input.equipe.creaCau || null,
+    art_rrt: input.equipe.observacoes || null,
+    alvara: input.aprovacao.alvara || null,
+    data_aprovacao: parseBrDate(input.aprovacao.dataAprovacao) ?? null,
   });
 
   if (dadosError) throw dadosError;
+
+  const socios = [
+    ...new Set(
+      [
+        ...input.identificacao.socios.map((s) => s.trim()),
+        input.identificacao.representante.trim(),
+      ].filter(Boolean),
+    ),
+  ];
+
+  for (const nome of socios) {
+    const { data: existente } = await supabase
+      .from("representantes_legais")
+      .select("id")
+      .eq("incorporadora_id", incorporadoraId)
+      .ilike("nome", nome)
+      .maybeSingle();
+
+    if (existente) continue;
+
+    const { error: repError } = await supabase.from("representantes_legais").insert({
+      incorporadora_id: incorporadoraId,
+      nome,
+    });
+
+    if (repError) throw repError;
+  }
+
+  const areaTerreno = parseBrNumeric(input.areas.terreno);
+  const { error: imovelError } = await supabase.from("imoveis").insert({
+    empreendimento_id: empreendimento.id,
+    lote_numero: loteQuadra.lote || null,
+    lote_extenso: loteQuadra.loteExtenso || null,
+    quadra_numero: loteQuadra.quadra || null,
+    quadra_extenso: loteQuadra.quadraExtenso || null,
+    matricula_numero: input.localizacao.matricula || null,
+    cidade: input.localizacao.cidade || null,
+    uf: input.localizacao.uf || null,
+    area_numero: areaTerreno,
+    area_extenso: areaTerreno ? areaMetrosQuadradosPorExtenso(areaTerreno) : null,
+  });
+
+  if (imovelError) throw imovelError;
 
   await logAudit(
     input.organizationId,
@@ -185,6 +444,71 @@ export async function createEmpreendimentoFromWizard(
   );
 
   return empreendimento.id;
+}
+
+export async function createEmpreendimentoFromNbr(
+  input: CreateEmpreendimentoFromNbrInput,
+): Promise<number> {
+  const wizardInput = mapDocumentoToWizardInput(
+    input.documento,
+    input.organizationId,
+    input.profileId,
+  );
+
+  const empreendimentoId = await createEmpreendimentoFromWizard(wizardInput);
+
+  const dadosExtraidos = mapDocumentoToDadosExtraidos(input.documento);
+  if (dadosExtraidos.length > 0) {
+    const { error: dadosExtraidosError } = await supabase.from("dados_extraidos").insert(
+      dadosExtraidos.map((d) => ({
+        empreendimento_id: empreendimentoId,
+        bloco: d.bloco,
+        campo: d.campo,
+        valor: d.valor,
+        confianca: d.confianca,
+        status: d.status,
+      })),
+    );
+
+    if (dadosExtraidosError) throw dadosExtraidosError;
+  }
+
+  const unidades = mapDocumentoToUnidades(input.documento);
+  if (unidades.length > 0) {
+    const BATCH_SIZE = 100;
+    for (let i = 0; i < unidades.length; i += BATCH_SIZE) {
+      const batch = unidades.slice(i, i + BATCH_SIZE);
+      const { error: unidadesError } = await supabase.from("unidades_autonomas").insert(
+        batch.map((u) => ({
+          empreendimento_id: empreendimentoId,
+          nome: u.nome,
+          torre: u.torre,
+          pavimento: u.pavimento,
+          tipo: u.tipo,
+          area_privativa: u.areaPrivativa,
+          area_comum: u.areaComum,
+          area_total: u.areaTotal,
+          area_garden: u.areaGarden,
+          vaga: u.vaga,
+          fracao: u.fracao,
+          confrontacoes: u.confrontacoes,
+          observacoes: u.observacoes,
+          status: "nao_revisado",
+        })),
+      );
+
+      if (unidadesError) throw unidadesError;
+    }
+  }
+
+  await logAudit(
+    input.organizationId,
+    empreendimentoId,
+    "importacao_nbr",
+    `Importados ${input.documento.quadros.length} quadros NBR e ${unidades.length} unidades de "${wizardInput.identificacao.nome}".`,
+  );
+
+  return empreendimentoId;
 }
 
 export async function updateEmpreendimentoBasico(input: UpdateEmpreendimentoInput): Promise<void> {
@@ -206,6 +530,15 @@ export async function updateEmpreendimentoBasico(input: UpdateEmpreendimentoInpu
     .eq("id", input.empreendimentoId);
 
   if (error) throw error;
+
+  if (input.matricula !== undefined) {
+    const { error: imovelError } = await supabase
+      .from("imoveis")
+      .update({ matricula_numero: input.matricula.trim() || null })
+      .eq("empreendimento_id", input.empreendimentoId);
+
+    if (imovelError) throw imovelError;
+  }
 
   await logAudit(
     input.organizationId,

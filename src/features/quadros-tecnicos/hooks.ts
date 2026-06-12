@@ -27,8 +27,9 @@ export function useUploadQuadroTecnico(empreendimentoId: number | null) {
 
   return useMutation({
     mutationFn: (input: UploadQuadroInput) => uploadQuadroTecnico(input),
-    onSuccess: () => {
+    onSuccess: (record) => {
       if (empreendimentoId) {
+        queryClient.setQueryData(quadroTecnicoQueryKey(empreendimentoId), record);
         void queryClient.invalidateQueries({ queryKey: quadroTecnicoQueryKey(empreendimentoId) });
       }
     },

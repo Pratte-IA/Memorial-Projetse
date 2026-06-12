@@ -26,10 +26,7 @@ export type Representante = {
 export type IncorporadoraForm = {
   razaoSocial: string;
   cnpj: string;
-  rua: string;
-  numero: string;
-  cep: string;
-  bairro: string;
+  endereco: string;
   cidade: string;
   estado: string;
 };
@@ -41,7 +38,12 @@ export type Confrontacao = {
   azimute: string;
 };
 
-export type ImovelMock = {
+export type PendenciaVisao = {
+  tone: "alerta" | "atencao" | "ceu";
+  texto: string;
+};
+
+export type ImovelView = {
   loteNumero: string;
   loteExtenso: string;
   quadraNumero: string;
