@@ -8,12 +8,15 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { Toaster } from "@/components/ui/sonner";
+import { AuthProvider } from "@/features/auth/auth-context";
+import "../lib/error-capture";
+import { logError } from "@/lib/log-error";
 
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4" role="main">
       <div className="max-w-md text-center">
         <h1 className="text-7xl font-semibold text-foreground">404</h1>
         <h2 className="mt-4 text-xl font-semibold text-foreground">Página não encontrada</h2>
@@ -34,13 +37,17 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error);
+  logError(error, { scope: "route-error" });
   const router = useRouter();
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div
+      className="flex min-h-screen items-center justify-center bg-background px-4"
+      role="alert"
+      aria-labelledby="route-error-title"
+    >
       <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
+        <h1 id="route-error-title" className="text-xl font-semibold tracking-tight text-foreground">
           Esta página não carregou
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
@@ -48,6 +55,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
+            type="button"
             onClick={() => {
               router.invalidate();
               reset();
@@ -74,7 +82,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Projetse — Sistema de Memorial de Incorporação" },
-      { name: "description", content: "Plataforma técnica da Projetse para automação de Memoriais de Incorporação a partir de quadros técnicos NBR 12.721." },
+      {
+        name: "description",
+        content:
+          "Plataforma técnica da Projetse para automação de Memoriais de Incorporação a partir de quadros técnicos NBR 12.721.",
+      },
       { name: "author", content: "Projetse" },
     ],
     links: [
@@ -112,8 +124,10 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
-      <Toaster position="top-right" />
+      <AuthProvider>
+        <Outlet />
+        <Toaster position="top-right" />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

@@ -20,6 +20,9 @@ dist-ssr
 .wrangler/
 .dev.vars
 
+# Histórico remoto do Supabase (projeto compartilhado); gerado por pnpm supabase:db-push
+supabase/migrations/*.sql
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

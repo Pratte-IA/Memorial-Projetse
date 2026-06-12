@@ -359,17 +359,67 @@ export type EventoHistorico = {
   hora: string;
   usuario: string;
   descricao: string;
-  tipo: "criacao" | "upload" | "extracao" | "edicao" | "validacao" | "geracao" | "aprovacao" | "exportacao";
+  tipo:
+    | "criacao"
+    | "upload"
+    | "extracao"
+    | "edicao"
+    | "validacao"
+    | "geracao"
+    | "aprovacao"
+    | "exportacao";
 };
 
 export const historico: EventoHistorico[] = [
-  { data: "15/04/2026", hora: "11:02", usuario: "Francieli L.", descricao: "Aprovou a seção \"Composição do Condomínio\".", tipo: "aprovacao" },
-  { data: "15/04/2026", hora: "10:48", usuario: "Sistema", descricao: "Memorial regenerado após edição de áreas comuns.", tipo: "geracao" },
-  { data: "15/04/2026", hora: "10:05", usuario: "Francieli L.", descricao: "Editou área comum da unidade 101 — Torre 01.", tipo: "edicao" },
-  { data: "15/04/2026", hora: "09:42", usuario: "Ana T.", descricao: "Validou 56 de 60 unidades autônomas.", tipo: "validacao" },
-  { data: "15/04/2026", hora: "09:18", usuario: "Sistema", descricao: "Extração concluída: 60 unidades identificadas.", tipo: "extracao" },
-  { data: "15/04/2026", hora: "09:12", usuario: "Ana T.", descricao: "Enviou o quadro técnico NBR 12.721.", tipo: "upload" },
-  { data: "14/04/2026", hora: "17:30", usuario: "Francieli L.", descricao: "Empreendimento criado.", tipo: "criacao" },
+  {
+    data: "15/04/2026",
+    hora: "11:02",
+    usuario: "Francieli L.",
+    descricao: 'Aprovou a seção "Composição do Condomínio".',
+    tipo: "aprovacao",
+  },
+  {
+    data: "15/04/2026",
+    hora: "10:48",
+    usuario: "Sistema",
+    descricao: "Memorial regenerado após edição de áreas comuns.",
+    tipo: "geracao",
+  },
+  {
+    data: "15/04/2026",
+    hora: "10:05",
+    usuario: "Francieli L.",
+    descricao: "Editou área comum da unidade 101 — Torre 01.",
+    tipo: "edicao",
+  },
+  {
+    data: "15/04/2026",
+    hora: "09:42",
+    usuario: "Ana T.",
+    descricao: "Validou 56 de 60 unidades autônomas.",
+    tipo: "validacao",
+  },
+  {
+    data: "15/04/2026",
+    hora: "09:18",
+    usuario: "Sistema",
+    descricao: "Extração concluída: 60 unidades identificadas.",
+    tipo: "extracao",
+  },
+  {
+    data: "15/04/2026",
+    hora: "09:12",
+    usuario: "Ana T.",
+    descricao: "Enviou o quadro técnico NBR 12.721.",
+    tipo: "upload",
+  },
+  {
+    data: "14/04/2026",
+    hora: "17:30",
+    usuario: "Francieli L.",
+    descricao: "Empreendimento criado.",
+    tipo: "criacao",
+  },
 ];
 
 export type Modelo = {
@@ -381,7 +431,13 @@ export type Modelo = {
 };
 
 export const modelos: Modelo[] = [
-  { id: "m1", nome: "Memorial de Incorporação — Padrão Projetse", tipo: "Memorial completo", status: "Ativo", atualizadoEm: "02/04/2026" },
+  {
+    id: "m1",
+    nome: "Memorial de Incorporação — Padrão Projetse",
+    tipo: "Memorial completo",
+    status: "Ativo",
+    atualizadoEm: "02/04/2026",
+  },
 ];
 
 export type Clausula = {
@@ -497,7 +553,20 @@ export const clausulas: Clausula[] = [
     categoria: "Aprovação de Projeto",
     resumo: "Cita alvará municipal, data, responsável técnico, CREA/CAU e ART/RRT.",
     status: "Publicada",
-    variaveis: ["aprovacao.orgao", "aprovacao.data", "aprovacao.alvara", "aprovacao.prefeitura", "responsavelProjeto.nome", "responsavelProjeto.formacao", "responsavelProjeto.crea", "responsavelProjeto.art", "responsavelObra.nome", "responsavelObra.formacao", "responsavelObra.crea", "responsavelObra.art"],
+    variaveis: [
+      "aprovacao.orgao",
+      "aprovacao.data",
+      "aprovacao.alvara",
+      "aprovacao.prefeitura",
+      "responsavelProjeto.nome",
+      "responsavelProjeto.formacao",
+      "responsavelProjeto.crea",
+      "responsavelProjeto.art",
+      "responsavelObra.nome",
+      "responsavelObra.formacao",
+      "responsavelObra.crea",
+      "responsavelObra.art",
+    ],
     template:
       "O projeto arquitetônico da edificação foi aprovado pela {{aprovacao.orgao}}, em {{aprovacao.data}}, conforme Alvará de Construção nº {{aprovacao.alvara}}, expedido pela {{aprovacao.prefeitura}}. A responsabilidade técnica pelo projeto arquitetônico e pela elaboração dos quadros da NBR 12.721 é do {{responsavelProjeto.formacao}} {{responsavelProjeto.nome}}, inscrito no CREA/CAU sob nº {{responsavelProjeto.crea}} e Anotação de Responsabilidade Técnica (ART/RRT) nº {{responsavelProjeto.art}}. A responsabilidade técnica pela execução da obra é do {{responsavelObra.formacao}} {{responsavelObra.nome}}, inscrito no CREA/CAU sob nº {{responsavelObra.crea}} e Anotação de Responsabilidade Técnica (ART/RRT) nº {{responsavelObra.art}}.",
   },
@@ -505,7 +574,8 @@ export const clausulas: Clausula[] = [
     id: "c6",
     titulo: "Sexta – Da Descrição das Unidades Autônomas",
     categoria: "Unidades Autônomas",
-    resumo: "Descrição completa das unidades autônomas por torre, pavimento, apartamento, metragem e fração ideal.",
+    resumo:
+      "Descrição completa das unidades autônomas por torre, pavimento, apartamento, metragem e fração ideal.",
     status: "Publicada",
     variaveis: ["listaUnidades"],
     template:
@@ -620,7 +690,8 @@ Artigo 32. Fica eleito o foro da Comarca de Cascavel-PR para todo tipo de ação
     id: "c10",
     titulo: "Décima – Do Prazo de Carência",
     categoria: "Incorporação",
-    resumo: "Declara inexistência de prazo de carência, pois as obras de edificação já foram iniciadas.",
+    resumo:
+      "Declara inexistência de prazo de carência, pois as obras de edificação já foram iniciadas.",
     status: "Publicada",
     variaveis: [],
     template:
@@ -634,7 +705,7 @@ Artigo 32. Fica eleito o foro da Comarca de Cascavel-PR para todo tipo de ação
     status: "Publicada",
     variaveis: [],
     template:
-      "De acordo com o que dispõe o Artigo 257, Inciso III, do Decreto Federal nº 3.408, de 6 de maio de 1999, publicado no Diário Oficial da União em 7 de maio de 1999, retificado conforme publicação no mesmo Diário em 12 de maio de 1999 (com a redação que lhe foi dada pelos Decretos Federais nº 3.265, de 29 de novembro de 1999 (DOU 30/11/1999), 3.298, de 20 de dezembro de 1999 (DOU 21/12/1999), 3.452, de 9 de maio de 2000 (DOU 09/05/2000) e 3.668, de 22 de novembro de 2000 (DOU 23/11/2000), e Item 5-III, da Ordem de Serviço nº 207, de 8 de abril de 1999, da Diretoria de Arrecadação e Fiscalização do Instituto Nacional do Seguro Social – INSS, publicada no Diário Oficial da União em 15 de abril de 1999, retificada conforme publicação no mesmo Diário em 16 e 19 de abril de 1999, combinado com os Artigos 29, Parágrafo Único, 30 e 32, alínea \"f\", da Lei Federal nº 4.591, de 16 de dezembro de 1964, a incorporadora declara, para fins de registro da Incorporação imobiliária do condomínio do Residencial Madrid, que está em dia com o recolhimento de contribuições à Previdência Social e que apresenta junto com este instrumento a Certidão Negativa de Débitos – CND, da Certidão Positiva de Débitos – CPD ou da Certidão Positiva de Débitos com Efeitos de Negativa – CPD-EM, do citado INSS.",
+      'De acordo com o que dispõe o Artigo 257, Inciso III, do Decreto Federal nº 3.408, de 6 de maio de 1999, publicado no Diário Oficial da União em 7 de maio de 1999, retificado conforme publicação no mesmo Diário em 12 de maio de 1999 (com a redação que lhe foi dada pelos Decretos Federais nº 3.265, de 29 de novembro de 1999 (DOU 30/11/1999), 3.298, de 20 de dezembro de 1999 (DOU 21/12/1999), 3.452, de 9 de maio de 2000 (DOU 09/05/2000) e 3.668, de 22 de novembro de 2000 (DOU 23/11/2000), e Item 5-III, da Ordem de Serviço nº 207, de 8 de abril de 1999, da Diretoria de Arrecadação e Fiscalização do Instituto Nacional do Seguro Social – INSS, publicada no Diário Oficial da União em 15 de abril de 1999, retificada conforme publicação no mesmo Diário em 16 e 19 de abril de 1999, combinado com os Artigos 29, Parágrafo Único, 30 e 32, alínea "f", da Lei Federal nº 4.591, de 16 de dezembro de 1964, a incorporadora declara, para fins de registro da Incorporação imobiliária do condomínio do Residencial Madrid, que está em dia com o recolhimento de contribuições à Previdência Social e que apresenta junto com este instrumento a Certidão Negativa de Débitos – CND, da Certidão Positiva de Débitos – CPD ou da Certidão Positiva de Débitos com Efeitos de Negativa – CPD-EM, do citado INSS.',
   },
   {
     id: "c12",
@@ -647,7 +718,6 @@ Artigo 32. Fica eleito o foro da Comarca de Cascavel-PR para todo tipo de ação
       "Em face de tudo expresso, a incorporadora requer ao Registrador, do Terceiro Serviço de Registro de Imóveis da Comarca de {{empreendimento.comarca}} que promova os seguintes atos: primeiro, o registro da incorporação imobiliária; segundo, o registro da Convenção Condominial e Regimento Interno; não havendo necessidade de registrar a convenção na íntegra, mas resumida, fornecendo-lhe, em seguida, cópia deste instrumento e certidão probatória de todos os atos; terceiro, todos os demais atos necessários para o pleno registro deste instrumento.",
   },
 ];
-
 
 export const indicadoresDashboard = {
   total: 12,

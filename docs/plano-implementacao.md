@@ -281,14 +281,15 @@ Todas devem:
 - Objetivo: iniciar Supabase no projeto e preparar ambiente para backend real.
 - Prioridade: Alta.
 - Dependências: nenhuma.
-- Status inicial: `Não iniciado`.
+- Status: `Concluído` (2026-06-11).
 - User Stories principais:
   - Como dev, quero um diretório `supabase/` versionado para gerenciar schema e migrations.
   - Como dev, quero env vars documentadas para rodar o projeto com Supabase.
   - Como dev, quero tipos gerados do banco para consumir dados com segurança.
 - Arquivos prováveis envolvidos:
   - `supabase/config.toml`
-  - `supabase/migrations/*`
+  - `supabase/migrations-projetse/*`
+  - `scripts/supabase-db-push.sh`
   - `supabase/seed.sql`
   - `src/lib/supabase/client.ts`
   - `src/lib/supabase/types.ts`
@@ -308,15 +309,15 @@ Todas devem:
 - Objetivo: criar o schema real inicial com RLS para substituir os principais mocks.
 - Prioridade: Alta.
 - Dependências: EPIC-01.
-- Status inicial: `Não iniciado`.
+- Status: `Concluído` (2026-06-11).
 - User Stories principais:
   - Como admin, quero organizações e membros para controlar acesso.
   - Como técnica, quero cadastrar e visualizar empreendimentos reais.
   - Como revisora, quero acessar apenas dados autorizados.
   - Como sistema, quero registrar auditoria dos eventos principais.
 - Arquivos prováveis envolvidos:
-  - `supabase/migrations/*_create_core_schema.sql`
-  - `supabase/migrations/*_create_rls_policies.sql`
+  - `supabase/migrations-projetse/*_create_core_schema.sql`
+  - `supabase/migrations-projetse/*_create_rls_policies.sql`
   - `supabase/seed.sql`
   - `src/lib/mock-data.ts`
 - Critérios de aceite:
@@ -331,7 +332,7 @@ Todas devem:
 - Objetivo: implementar Supabase Auth e proteger o app.
 - Prioridade: Alta.
 - Dependências: EPIC-01, EPIC-02.
-- Status inicial: `Não iniciado`.
+- Status: `Concluído` (2026-06-11).
 - User Stories principais:
   - Como usuário, quero fazer login e logout.
   - Como usuário, quero recuperar minha senha.
@@ -354,7 +355,7 @@ Todas devem:
 - Objetivo: substituir mocks de dashboard e lista por dados reais.
 - Prioridade: Alta.
 - Dependências: EPIC-02, EPIC-03.
-- Status inicial: `Não iniciado`.
+- Status: `Concluído` (2026-06-11).
 - User Stories principais:
   - Como gestora, quero ver indicadores calculados com dados reais.
   - Como técnica, quero listar, filtrar e buscar empreendimentos reais.
@@ -377,7 +378,7 @@ Todas devem:
 - Objetivo: quebrar a tela central em componentes/features antes de conectar todas as abas.
 - Prioridade: Alta.
 - Dependências: EPIC-04.
-- Status inicial: `Não iniciado`.
+- Status: `Concluído` (2026-06-11).
 - User Stories principais:
   - Como dev, quero a rota de detalhe mais simples e sustentável.
   - Como técnica, quero manter a mesma experiência visual após a refatoração.
@@ -399,7 +400,7 @@ Todas devem:
 - Objetivo: substituir upload simulado por armazenamento real e metadados no banco.
 - Prioridade: Alta.
 - Dependências: EPIC-02, EPIC-03, EPIC-05.
-- Status inicial: `Não iniciado`.
+- Status: `Concluído` (2026-06-11).
 - User Stories principais:
   - Como técnica, quero enviar um quadro técnico real.
   - Como técnica, quero ver status de processamento.
@@ -419,7 +420,7 @@ Todas devem:
 - Objetivo: persistir campos extraídos, confiança, revisão e validação.
 - Prioridade: Alta.
 - Dependências: EPIC-06.
-- Status inicial: `Não iniciado`.
+- Status: `Concluído` (2026-06-11).
 - User Stories principais:
   - Como técnica, quero revisar campos extraídos e editar valores.
   - Como técnica, quero confirmar blocos de dados.
@@ -439,7 +440,7 @@ Todas devem:
 - Objetivo: conectar unidades, vagas, áreas, frações e confrontações ao banco.
 - Prioridade: Alta.
 - Dependências: EPIC-07.
-- Status inicial: `Não iniciado`.
+- Status: `Concluído` (2026-06-11).
 - User Stories principais:
   - Como técnica, quero visualizar unidades reais do empreendimento.
   - Como técnica, quero editar e validar unidade por unidade.
@@ -461,7 +462,7 @@ Todas devem:
 - Objetivo: persistir biblioteca documental e gerar seções do memorial a partir de templates e dados reais.
 - Prioridade: Alta.
 - Dependências: EPIC-08.
-- Status inicial: `Não iniciado`.
+- Status: `Concluído` (2026-06-11).
 - User Stories principais:
   - Como admin, quero gerenciar modelos e cláusulas.
   - Como técnica, quero gerar seções do memorial com dados validados.
@@ -484,7 +485,7 @@ Todas devem:
 - Objetivo: gerar e armazenar documentos exportáveis.
 - Prioridade: Média/Alta.
 - Dependências: EPIC-09.
-- Status inicial: `Não iniciado`.
+- Status: `Concluído` (2026-06-11).
 - User Stories principais:
   - Como técnica, quero exportar versão de revisão.
   - Como gestora, quero exportar versão final somente sem pendências bloqueantes.
@@ -505,7 +506,7 @@ Todas devem:
 - Objetivo: tornar configurações e gestão de usuários funcionais.
 - Prioridade: Média.
 - Dependências: EPIC-03.
-- Status inicial: `Não iniciado`.
+- Status: `Concluído` (2026-06-11).
 - User Stories principais:
   - Como admin, quero gerenciar membros e papéis.
   - Como admin, quero configurar dados da Projetse.
@@ -526,7 +527,7 @@ Todas devem:
 - Objetivo: elevar confiabilidade antes de lançamento.
 - Prioridade: Média.
 - Dependências: EPIC-04 em diante.
-- Status inicial: `Não iniciado`.
+- Status: `Concluído` (2026-06-11).
 - User Stories principais:
   - Como usuário, quero telas rápidas e estados claros.
   - Como dev, quero detectar erros e regressões.
@@ -549,7 +550,7 @@ Todas devem:
 - Objetivo: preparar deploy produtivo com segurança e rollback.
 - Prioridade: Alta no final do ciclo.
 - Dependências: EPIC-01 a EPIC-12.
-- Status inicial: `Não iniciado`.
+- Status: `Concluído`.
 - User Stories principais:
   - Como gestora, quero uma versão pronta para uso controlado.
   - Como dev, quero checklist de Go-Live e rollback.
@@ -851,15 +852,15 @@ Todas as alterações de banco devem respeitar estas regras:
 
 ### Migrations Prováveis
 
-- `0001_create_projetse_schema.sql`
-- `0002_create_projetse_organizations_profiles_members.sql`
-- `0003_create_projetse_empreendimentos_core.sql`
-- `0004_create_projetse_quadros_extracted_data.sql`
-- `0005_create_projetse_unidades_pendencias.sql`
-- `0006_create_projetse_templates_memoriais_exports.sql`
-- `0007_create_projetse_audit_events.sql`
-- `0008_create_storage_buckets_and_policies.sql`
-- `0009_create_projetse_rls_policies.sql`
+Todas as migrations do Memorial-Projetse ficam em `supabase/migrations-projetse/` e são aplicadas com `pnpm supabase:db-push`.
+
+- `20260611230000_create_projetse_schema.sql` ✓
+- `20260612120000_create_projetse_core_schema.sql` ✓
+- `20260612130000_create_projetse_rls_policies.sql` ✓
+- `20260612140000_seed_projetse_initial_data.sql` ✓
+- `20260613120000_seed_projetse_demo_users.sql` ✓ (substituído por `20260613150000`)
+- `20260613150000_replace_demo_users_with_teste.sql` ✓
+- `20260614120000_create_quadros_tecnicos_storage.sql` ✓ (EPIC-06)
 
 Toda migration deve usar schema explícito. Exemplo:
 
@@ -1020,9 +1021,9 @@ Padrão mínimo:
 ### Revisão de Build
 
 - Rodar `pnpm install` em ambiente limpo.
-- Rodar `pnpm lint`.
-- Rodar `pnpm build`.
-- Validar preview/deploy em ambiente de staging.
+- Rodar `pnpm check:release` (typecheck + lint + build + `wrangler deploy --dry-run`).
+- Rodar `pnpm preview:prod` para smoke local pós-build (porta 3000).
+- Deploy real: `pnpm deploy:cf` (requer credenciais Cloudflare e vars Supabase no CI ou secrets).
 
 ### Revisão de Variáveis de Ambiente
 
@@ -1062,11 +1063,11 @@ Padrão mínimo:
 
 ### Plano de Rollback Simples
 
-- Manter versão anterior do frontend disponível para redeploy.
-- Migrations destrutivas devem ser evitadas; quando necessárias, criar scripts reversíveis.
-- Antes de mudanças críticas, exportar backup do schema/dados.
-- Edge Functions devem ser versionadas por deploy.
-- Em falha grave, pausar novas operações, restaurar frontend anterior e reverter migration segura.
+1. **Frontend (Cloudflare Workers):** no dashboard Workers → `memorial-projetse` → Deployments → selecionar versão anterior → Promote to production. Alternativa CLI: redeploy do commit/tag anterior com `pnpm deploy:cf`.
+2. **Banco:** evitar migrations destrutivas; antes de mudanças críticas, backup via Supabase Dashboard (Database → Backups) ou `pg_dump` do schema `projetse`. Reverter apenas migrations com script SQL explícito e testado em staging.
+3. **Storage:** buckets `quadros-tecnicos` e `documentos-exportados` são privados; rollback de frontend não apaga arquivos — validar policies após restore.
+4. **Edge Functions:** cada deploy cria nova versão; em falha, redeploy da função anterior pelo CLI (`supabase functions deploy <nome>` a partir do commit estável).
+5. **Procedimento de emergência:** pausar novos uploads/exportações (comunicar equipe), restaurar frontend, validar login + listagem Madrid + RLS (`scripts/verify-rls.sql`), só então reabrir uso.
 
 ## 10. Controle de Execução
 
@@ -1075,3 +1076,19 @@ Padrão mínimo:
 | 2026-06-10 | Planejamento | Criação inicial do plano técnico para migração de protótipo Lovable para produto funcional com Supabase obrigatório. | `docs/plano-implementacao.md` | Concluído | Documento criado antes de implementar funcionalidades. |
 | 2026-06-10 | Planejamento | Definição do schema oficial `projetse` para todas as alterações de banco de dados. | `docs/plano-implementacao.md` | Concluído | Tabelas, referências, migrations, RLS, views, triggers e funções SQL de negócio devem usar o schema `projetse`; `public` não deve receber tabelas de negócio. |
 | 2026-06-10 | Planejamento | Definição do padrão de IDs numéricos para modelagem do banco. | `docs/plano-implementacao.md` | Concluído | Chaves primárias e estrangeiras de negócio devem priorizar `bigint`; `uuid` fica restrito ao vínculo `user_id` com `auth.users(id)` ou a exceções justificadas previamente. |
+| 2026-06-11 | EPIC-01 | Fundação Supabase: diretório `supabase/`, migration do schema `projetse`, cliente JS, tipos iniciais, `.env.example`, scripts CLI e link ao projeto remoto. | `supabase/`, `src/lib/supabase/`, `.env.example`, `package.json`, `src/vite-env.d.ts` | Concluído | Projeto linkado a `jlnwoapaeiywehihilua`. `pnpm dev` OK. Migration `20260611230000_create_projetse_schema.sql` aplicada via `pnpm supabase:db-push`. Schema `projetse` no remoto deve ser exposto na API (Dashboard → Settings → API → Exposed schemas). |
+| 2026-06-11 | EPIC-01 | Workflow de migrations via CLI para Supabase compartilhado: migrations do Memorial em `supabase/migrations-projetse/`; script `scripts/supabase-db-push.sh` sincroniza histórico remoto e aplica pendentes. | `scripts/supabase-db-push.sh`, `supabase/migrations-projetse/`, `.gitignore`, `package.json` | Concluído | Comando padrão para aplicar migrations do projeto: `pnpm supabase:db-push`. Histórico remoto de outros apps fica em `supabase/migrations/` (gitignored). |
+| 2026-06-11 | EPIC-02 | Modelagem core no schema `projetse`: 18 tabelas, RLS em todas, funções de autorização, seeds Projetse + Residencial Madrid (60 unidades, cláusulas, memorial, auditoria). | `supabase/migrations-projetse/20260612120000_*.sql`, `20260612130000_*.sql`, `20260612140000_*.sql`, `src/lib/supabase/types.ts` | Concluído | Migrations aplicadas via `pnpm supabase:db-push`. Tipos gerados com `pnpm supabase:gen-types`. Usuários demo serão vinculados na EPIC-03. |
+| 2026-06-11 | EPIC-03 | Autenticação Supabase: login, logout, recuperação de senha, guards de rota, sidebar com usuário real, permissões por papel e usuários demo seedados. | `src/features/auth/*`, `src/routes/login.tsx`, `src/routes/esqueci-senha.tsx`, `src/routes/_app.tsx`, `src/components/app-sidebar.tsx`, `supabase/migrations-projetse/20260613120000_seed_projetse_demo_users.sql` | Concluído | Senha demo: `Projetse@2026`. Configurações restrita a admin/gestora. UI interna ainda usa mocks (EPIC-04+). |
+| 2026-06-11 | EPIC-03 | Consolidação do usuário de testes: único admin `teste@projetse.com.br`; remoção dos usuários demo anteriores. | `supabase/migrations-projetse/20260613150000_replace_demo_users_with_teste.sql`, `src/features/auth/constants.ts` | Concluído | Acesso total (admin). Senha: `Projetse@2026`. |
+| 2026-06-11 | EPIC-03 | Correção login "Database error querying schema": tokens vazios em `auth.users`, exposição do schema `projetse` na Data API (`config push` + migrations). | `20260613160000_fix_auth_users_token_columns.sql`, `20260613170000_expose_projetse_schema.sql`, `supabase/config.toml` | Concluído | Projeto Supabase compartilhado: `config.toml` mantém schemas dos demais apps + `projetse`. |
+| 2026-06-11 | EPIC-04 | Dashboard e empreendimentos conectados ao Supabase: indicadores agregados, listagem com busca/filtro, criação via wizard, edição básica, auditoria em criação/edição, loader numérico na rota de detalhe. | `src/features/empreendimentos/*`, `src/features/dashboard/*`, `src/routes/_app.index.tsx`, `src/routes/_app.empreendimentos.*.tsx`, `src/components/status-badge.tsx` | Concluído | Abas internas do detalhe (`$id`) ainda usam mocks parciais — refatoração na EPIC-05. Residencial Madrid acessível em `/empreendimentos/1`. |
+| 2026-06-11 | EPIC-05 | Modularização da esteira do empreendimento: rota `$id` reduzida a loader + shell; abas delegadas a `features/empreendimentos`, `quadros-tecnicos`, `dados-extraidos`, `unidades` e `memorial`. | `src/routes/_app.empreendimentos.$id.tsx`, `src/features/empreendimentos/components/*`, `src/features/quadros-tecnicos/*`, `src/features/dados-extraidos/*`, `src/features/unidades/*`, `src/features/memorial/*` | Concluído | UI preservada com mocks nas abas; conexão Supabase por aba nas EPICs 06–11. `tsc` OK. |
+| 2026-06-11 | EPIC-06 | Upload real de quadro técnico: bucket privado `quadros-tecnicos`, policies de storage por org/empreendimento, API de upload/processamento, metadados em `quadros_tecnicos`, auditoria e UI com drag-and-drop. | `supabase/migrations-projetse/20260614120000_*.sql`, `src/features/quadros-tecnicos/*`, `supabase/functions/processar-quadro-tecnico/index.ts` | Concluído | Extração ainda simulada no client; Edge Function stub para EPIC-07. Path: `{org_id}/{emp_id}/arquivo.pdf`. |
+| 2026-06-11 | EPIC-07 | Dados extraídos persistidos em `dados_extraidos`: seed ao processar quadro, edição com Zod, confirmação por bloco, progresso real, auditoria de edições/validações e constraints no banco. | `supabase/migrations-projetse/20260614140000_*.sql`, `src/features/dados-extraidos/*`, `src/features/quadros-tecnicos/api.ts` | Concluído | 14 campos em 4 blocos. `ensureDadosExtraidosSeeded` cobre quadros processados antes da EPIC-07. |
+| 2026-06-11 | EPIC-08 | Unidades autônomas conectadas ao Supabase: listagem real (60 Madrid), KPIs, filtros por torre/status, busca, paginação, drawer de revisão com preview textual, validação individual e em massa, auditoria. | `src/features/unidades/*`, `src/components/status-badge.tsx`, `src/features/empreendimentos/components/empreendimento-detail-page.tsx` | Concluído | Aba memorial ainda usa mock (`unidadesResidencialMadrid`) — EPIC-09. Tabela `unidades_autonomas` já existia no seed EPIC-02. `tsc` OK. |
+| 2026-06-11 | EPIC-09 | Modelos, cláusulas e motor de memorial: biblioteca documental do banco, geração por templates com contexto real, seções versionadas, aprovação/pendência com auditoria, unidades reais na seção autônomas. | `src/features/documentos/*`, `src/features/memorial/*`, `src/routes/_app.modelos.tsx`, `src/routes/_app.clausulas.tsx`, `src/components/status-badge.tsx` | Concluído | Edição/duplicação de cláusulas na UI adiada; exportação na EPIC-10. Edge Function `gerar-memorial` substituída por motor client-side. `tsc` OK. |
+| 2026-06-11 | EPIC-10 | Exportação de memorial: bucket `documentos-exportados`, geração PDF/RTF no client, registro em `document_exports`, histórico real, download via signed URL, bloqueio de versão final por pendências bloqueantes. | `supabase/migrations-projetse/20260615120000_*.sql`, `src/features/exportacoes/*`, `src/features/empreendimentos/components/exportacoes-tab.tsx`, `supabase/functions/exportar-documento/index.ts` | Concluído | DOCX gerado como RTF compatível com Word. Aplicar migration: `pnpm supabase:db-push`. `tsc` OK. |
+| 2026-06-11 | EPIC-11 | Configurações, usuários e auditoria: `organizations.settings` persistido, membros reais com alteração de papel (admin), histórico global e por empreendimento via `audit_events`, auditoria em mudanças sensíveis. | `supabase/migrations-projetse/20260615140000_*.sql`, `src/features/configuracoes/*`, `src/features/auditoria/*`, `src/routes/_app.configuracoes.tsx`, `src/routes/_app.historico.tsx` | Concluído | Convite de novos usuários adiado. `pnpm supabase:gen-types` após migration. `tsc` OK. |
+| 2026-06-11 | EPIC-12 | Qualidade e observabilidade: build corrigido (`@tanstack/query-core`), script `pnpm typecheck`, QueryClient centralizado, `logError`, componentes `QueryLoading/Error/Empty`, a11y (skip link, `aria-current`, `role=alert`), remoção de fallback mock na rota `$id`. | `package.json`, `src/lib/query-client.ts`, `src/lib/log-error.ts`, `src/components/query-state.tsx`, `src/routes/__root.tsx`, `src/routes/_app.tsx`, `src/components/app-sidebar.tsx` | Concluído | `pnpm build` e `pnpm typecheck` OK. Testes automatizados adiados (EPIC-13). |
+| 2026-06-11 | EPIC-13 | Preparação para lançamento: `wrangler.jsonc` apontando para `dist/`, validação centralizada de env (`src/lib/env.ts`), `.env.example` documentado, scripts `check:release`, `deploy:cf`, `preview:prod`, checklist RLS (`scripts/verify-rls.sql`), porta dev 3000, plano de rollback expandido. | `wrangler.jsonc`, `vite.config.ts`, `package.json`, `.env.example`, `scripts/check-release.sh`, `scripts/verify-rls.sql`, `src/lib/env.ts`, `src/lib/supabase/client.ts`, `docs/plano-implementacao.md` | Concluído | `pnpm check:release` OK. Deploy real e testes manuais multi-papel pendentes no Go-Live. |

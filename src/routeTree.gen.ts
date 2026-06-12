@@ -9,6 +9,8 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as EsqueciSenhaRouteImport } from './routes/esqueci-senha'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
 import { Route as AppModelosRouteImport } from './routes/_app.modelos'
@@ -19,6 +21,16 @@ import { Route as AppEmpreendimentosIndexRouteImport } from './routes/_app.empre
 import { Route as AppEmpreendimentosNovoRouteImport } from './routes/_app.empreendimentos.novo'
 import { Route as AppEmpreendimentosIdRouteImport } from './routes/_app.empreendimentos.$id'
 
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EsqueciSenhaRoute = EsqueciSenhaRouteImport.update({
+  id: '/esqueci-senha',
+  path: '/esqueci-senha',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppRoute = AppRouteImport.update({
   id: '/_app',
   getParentRoute: () => rootRouteImport,
@@ -66,6 +78,8 @@ const AppEmpreendimentosIdRoute = AppEmpreendimentosIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/esqueci-senha': typeof EsqueciSenhaRoute
+  '/login': typeof LoginRoute
   '/clausulas': typeof AppClausulasRoute
   '/configuracoes': typeof AppConfiguracoesRoute
   '/historico': typeof AppHistoricoRoute
@@ -75,6 +89,8 @@ export interface FileRoutesByFullPath {
   '/empreendimentos/': typeof AppEmpreendimentosIndexRoute
 }
 export interface FileRoutesByTo {
+  '/esqueci-senha': typeof EsqueciSenhaRoute
+  '/login': typeof LoginRoute
   '/clausulas': typeof AppClausulasRoute
   '/configuracoes': typeof AppConfiguracoesRoute
   '/historico': typeof AppHistoricoRoute
@@ -87,6 +103,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
+  '/esqueci-senha': typeof EsqueciSenhaRoute
+  '/login': typeof LoginRoute
   '/_app/clausulas': typeof AppClausulasRoute
   '/_app/configuracoes': typeof AppConfiguracoesRoute
   '/_app/historico': typeof AppHistoricoRoute
@@ -100,6 +118,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/esqueci-senha'
+    | '/login'
     | '/clausulas'
     | '/configuracoes'
     | '/historico'
@@ -109,6 +129,8 @@ export interface FileRouteTypes {
     | '/empreendimentos/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/esqueci-senha'
+    | '/login'
     | '/clausulas'
     | '/configuracoes'
     | '/historico'
@@ -120,6 +142,8 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_app'
+    | '/esqueci-senha'
+    | '/login'
     | '/_app/clausulas'
     | '/_app/configuracoes'
     | '/_app/historico'
@@ -132,10 +156,26 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
+  EsqueciSenhaRoute: typeof EsqueciSenhaRoute
+  LoginRoute: typeof LoginRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/esqueci-senha': {
+      id: '/esqueci-senha'
+      path: '/esqueci-senha'
+      fullPath: '/esqueci-senha'
+      preLoaderRoute: typeof EsqueciSenhaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app': {
       id: '/_app'
       path: ''
@@ -228,6 +268,8 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
+  EsqueciSenhaRoute: EsqueciSenhaRoute,
+  LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

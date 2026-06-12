@@ -1,0 +1,3 @@
+-- Seeds do Memorial-Projetse são aplicados pela migration
+-- 20260612140000_seed_projetse_initial_data.sql (via pnpm supabase:db-push).
+-- Este arquivo permanece vazio para `supabase db reset` local.

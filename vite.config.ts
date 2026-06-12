@@ -12,4 +12,14 @@ export default defineConfig({
   tanstackStart: {
     server: { entry: "server" },
   },
+  vite: {
+    server: {
+      port: 3000,
+      strictPort: true,
+    },
+    preview: {
+      port: 3000,
+      strictPort: true,
+    },
+  },
 });

@@ -26,9 +26,7 @@ export function PageHeader({ title, subtitle, breadcrumb, action }: Props) {
             </nav>
           )}
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">{title}</h1>
-          {subtitle && (
-            <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
-          )}
+          {subtitle && <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>}
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {action}
