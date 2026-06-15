@@ -2,6 +2,12 @@
   command = "pnpm run build"
   publish = "dist/client"
 
+# Required at build time (Vite inlines VITE_* into client + SSR bundles) and at function runtime.
+# Configure in Netlify UI: Site configuration → Environment variables
+#   - VITE_SUPABASE_URL
+#   - VITE_SUPABASE_ANON_KEY
+# Use scope "All" (or enable for both Build and Functions).
+
 # Vite already bundles SSR into dist/server; Netlify must not re-bundle with esbuild
 # (that re-resolves @tanstack/router-core and breaks at runtime).
 [functions]
