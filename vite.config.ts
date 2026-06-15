@@ -4,20 +4,15 @@
 //     componentTagger (dev-only), VITE_* env injection, @ path alias, React/TanStack dedupe,
 //     error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... } }) if needed.
+import netlify from "@netlify/vite-plugin-tanstack-start";
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
-// Nitro preset `netlify` publishes static assets to dist/client and the SSR handler to
-// .netlify/functions-internal/server/server.mjs for Netlify Functions.
+// @netlify/vite-plugin-tanstack-start writes `.netlify/v1/functions/server.mjs` from the SSR
+// bundle — no Nitro re-bundle, which avoids cross-platform Rollup export mismatches on CI.
 export default defineConfig({
-  nitro: {
-    preset: "netlify",
-    output: {
-      dir: ".netlify/functions-internal",
-      serverDir: ".netlify/functions-internal/server",
-      publicDir: "dist/client",
-    },
-  },
+  nitro: false,
+  plugins: [netlify()],
   tanstackStart: {
     server: { entry: "server" },
   },

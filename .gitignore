@@ -33,3 +33,6 @@ supabase/migrations/*.sql
 *.njsproj
 *.sln
 *.sw?
+
+# Local Netlify folder
+.netlify
