@@ -11,6 +11,7 @@ import {
   usePendenciasBloqueantes,
 } from "@/features/exportacoes/hooks";
 import type { ExportFormato, ExportTipo } from "@/features/exportacoes/types";
+import { ProntidaoExportacaoPanel } from "./prontidao-exportacao-panel";
 import {
   AlertTriangle,
   Download,
@@ -74,6 +75,8 @@ export function ExportacoesTab({ empreendimentoId, empreendimentoNome }: Exporta
 
   return (
     <div className="space-y-5">
+      <ProntidaoExportacaoPanel empreendimentoId={empreendimentoId} />
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <Card className="p-6 border-border shadow-none">
           <div className="flex items-center gap-3 mb-3">

@@ -1,9 +1,6 @@
 export type EmpreendimentoDetailAba =
+  | "dados-validados"
   | "visao"
-  | "quadro"
-  | "dados"
-  | "condominio"
-  | "unidades"
   | "memorial"
   | "exportacoes"
   | "historico";
@@ -37,6 +34,19 @@ export type Confrontacao = {
   medida: string;
   azimute: string;
 };
+
+export interface CondominioPavimentoView {
+  id: number;
+  torre: string | null;
+  nome: string;
+  areaReal: number;
+  areaEquivalente: number | null;
+}
+
+export interface CondominioEspacoComumView {
+  id: number;
+  nome: string;
+}
 
 export type PendenciaVisao = {
   tone: "alerta" | "atencao" | "ceu";

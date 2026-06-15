@@ -23,6 +23,22 @@ export interface MemorialRecord {
   secoes: SecaoRecord[];
 }
 
+export interface MemorialContextRepresentante {
+  nome: string;
+  cpf: string;
+  rg: string;
+  estadoCivil: string;
+  profissao: string;
+  orgaoEmissor: string;
+}
+
+export interface MemorialContextResponsavel {
+  nome: string;
+  formacao: string;
+  crea: string;
+  art: string;
+}
+
 export interface MemorialContextData {
   incorporadora: {
     razaoSocial: string;
@@ -30,19 +46,32 @@ export interface MemorialContextData {
     endereco: string;
     cidade: string;
     uf: string;
-    representante: {
-      nome: string;
-      cpf: string;
-      rg: string;
-      estadoCivil: string;
-    };
+    certidao: string;
+    representante: MemorialContextRepresentante;
   };
   empreendimento: {
     nome: string;
     endereco: string;
     cidade: string;
     uf: string;
+    comarca: string;
     areaGlobal: string;
+    areaTotalEdificada: string;
+    areaTotalEdificadaExtenso: string;
+    areaPrivativa: string;
+    areaPrivativaExtenso: string;
+    areaComum: string;
+    areaComumExtenso: string;
+    qtdTorres: string;
+    qtdTorresExtenso: string;
+    qtdPavimentos: string;
+    qtdPavimentosExtenso: string;
+    qtdUnidades: string;
+    qtdUnidadesExtenso: string;
+    qtdVagas: string;
+    qtdVagasExtenso: string;
+    qtdEtapas: string;
+    areasComuns: string;
     torres: string;
     pavimentos: string;
     unidades: string;
@@ -59,16 +88,41 @@ export interface MemorialContextData {
     area: string;
     areaExtenso: string;
     matricula: string;
+    matriculaExtenso: string;
     cartorio: string;
     confrontacoes: string;
+    confrontaNoroeste: string;
+    medidaNoroeste: string;
+    azimuteNoroeste: string;
+    confrontaNordeste: string;
+    medidaNordeste: string;
+    azimuteNordeste: string;
+    confrontaSudeste: string;
+    medidaSudeste: string;
+    azimuteSudeste: string;
+    confrontaSudoeste: string;
+    medidaSudoeste: string;
+    azimuteSudoeste: string;
   };
   aprovacao: {
+    orgao: string;
     alvara: string;
     data: string;
+    prefeitura: string;
   };
-  responsavelProjeto: {
-    nome: string;
-    crea: string;
-    art: string;
+  responsavelProjeto: MemorialContextResponsavel;
+  responsavelObra: MemorialContextResponsavel;
+  orcamento: {
+    valor: string;
+    valorExtenso: string;
+    cubMultiplicador: string;
+    cubMultiplicadorExtenso: string;
+    cubValor: string;
+    cubValorExtenso: string;
+    mesReferencia: string;
+    anoReferencia: string;
+    regiaoCub: string;
   };
+  areasPavimentos: string;
+  listaUnidades: string;
 }

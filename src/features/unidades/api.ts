@@ -1,9 +1,41 @@
 import { supabase } from "@/lib/supabase/client";
 import type { Json } from "@/lib/supabase/types";
 
+import {
+  backfillUnidadesVagasFromDocumento,
+  loadLatestQuadroDocumento,
+} from "@/features/empreendimentos/sync-unidades-vagas-from-quadro";
+import {
+  loadVagaLookupForEmpreendimento,
+  resolveVagaFromLookup,
+} from "@/features/empreendimentos/vaga-lookup";
+
 import { computeResumo, mapRowToUnidade } from "./mappers";
 import { updateUnidadeSchema } from "./schemas";
 import type { UnidadeDbStatus, UnidadeRecord, UnidadesResumo, UpdateUnidadeInput } from "./types";
+
+function enrichUnidadesFromQuadroLookup(
+  unidades: UnidadeRecord[],
+  lookup: Awaited<ReturnType<typeof loadVagaLookupForEmpreendimento>>,
+): UnidadeRecord[] {
+  return unidades.map((unidade) => {
+    if (unidade.vaga !== "—") return unidade;
+
+    const resolved = resolveVagaFromLookup(
+      lookup,
+      unidade.nome,
+      unidade.torre,
+      unidade.observacoes,
+    );
+    if (!resolved) return unidade;
+
+    return {
+      ...unidade,
+      vaga: resolved.vaga,
+      observacoes: unidade.observacoes || resolved.observacoes,
+    };
+  });
+}
 
 async function logAudit(
   organizationId: number,
@@ -32,7 +64,41 @@ export async function fetchUnidades(empreendimentoId: number): Promise<UnidadeRe
     .order("nome");
 
   if (error) throw error;
-  return (data ?? []).map(mapRowToUnidade);
+
+  let rows = data ?? [];
+  let unidades = rows.map(mapRowToUnidade);
+
+  if (unidades.some((u) => u.vaga === "—")) {
+    try {
+      const lookup = await loadVagaLookupForEmpreendimento(empreendimentoId);
+      if (lookup.size > 0) {
+        unidades = enrichUnidadesFromQuadroLookup(unidades, lookup);
+      }
+
+      const documento = await loadLatestQuadroDocumento(empreendimentoId);
+      if (documento) {
+        const atualizadas = await backfillUnidadesVagasFromDocumento(empreendimentoId, documento);
+        if (atualizadas > 0) {
+          const { data: refreshed, error: refreshError } = await supabase
+            .from("unidades_autonomas")
+            .select("*")
+            .eq("empreendimento_id", empreendimentoId)
+            .order("torre")
+            .order("pavimento")
+            .order("nome");
+
+          if (refreshError) throw refreshError;
+          rows = refreshed ?? [];
+          unidades = rows.map(mapRowToUnidade);
+          unidades = enrichUnidadesFromQuadroLookup(unidades, lookup);
+        }
+      }
+    } catch (syncError) {
+      console.warn("Falha ao sincronizar vagas a partir do quadro técnico:", syncError);
+    }
+  }
+
+  return unidades;
 }
 
 export async function fetchUnidadesResumo(empreendimentoId: number): Promise<UnidadesResumo> {

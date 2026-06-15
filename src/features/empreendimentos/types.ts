@@ -3,6 +3,8 @@ import type { Empreendimento } from "@/lib/mock-data";
 import type {
   IncorporadoraForm,
   ImovelView,
+  CondominioEspacoComumView,
+  CondominioPavimentoView,
   PendenciaVisao,
   Representante,
 } from "./types/detail-types";
@@ -32,6 +34,8 @@ export type EmpreendimentoView = Empreendimento & {
   imovel: ImovelView;
   areaPrivativaTotal: number;
   areaComumTotal: number;
+  pavimentosAreas: CondominioPavimentoView[];
+  espacosComuns: CondominioEspacoComumView[];
   pendenciasAbertas: PendenciaVisao[];
 };
 
@@ -87,8 +91,16 @@ export interface CreateEmpreendimentoInput {
   };
 }
 
+export interface ArquivoQuadroImportado {
+  name: string;
+  type: string;
+  size: number;
+  buffer: ArrayBuffer;
+}
+
 export interface CreateEmpreendimentoFromNbrInput {
   documento: DocumentoNbrExtraido;
+  arquivo: ArquivoQuadroImportado;
   organizationId: number;
   profileId: number;
 }
@@ -103,4 +115,10 @@ export interface UpdateEmpreendimentoInput {
   lote?: string;
   quadra?: string;
   matricula?: string;
+}
+
+export interface DeleteEmpreendimentoInput {
+  organizationId: number;
+  empreendimentoId: number;
+  nome: string;
 }

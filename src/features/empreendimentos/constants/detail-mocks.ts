@@ -99,11 +99,8 @@ export const EMPREENDIMENTO_DETAIL_ABAS: {
   id: import("../types/detail-types").EmpreendimentoDetailAba;
   label: string;
 }[] = [
-  { id: "visao", label: "Visão Geral" },
-  { id: "quadro", label: "Quadro Técnico" },
-  { id: "dados", label: "Dados Extraídos" },
-  { id: "condominio", label: "Dados do Condomínio" },
-  { id: "unidades", label: "Unidades Autônomas" },
+  { id: "dados-validados", label: "Dados validados" },
+  { id: "visao", label: "Cadastro complementar" },
   { id: "memorial", label: "Memorial" },
   { id: "exportacoes", label: "Exportações" },
   { id: "historico", label: "Histórico" },

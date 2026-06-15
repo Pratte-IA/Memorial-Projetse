@@ -5,17 +5,15 @@ import { Button } from "@/components/ui/button";
 import {
   AlertTriangle,
   Briefcase,
-  Building2,
-  ChevronRight,
   FileText,
   MapPin,
   Pencil,
   Plus,
-  Ruler,
   Trash2,
   UserCircle2,
 } from "lucide-react";
-import { fmtArea, fmtNum, formatEstadoUf, formatLoteQuadra } from "@/lib/format";
+import { fmtNum, formatEstadoUf } from "@/lib/format";
+import { matriculaPorExtenso } from "@/lib/numero-extenso";
 
 import { REPRESENTANTE_VAZIO } from "../constants/detail-mocks";
 import type { EmpreendimentoView } from "../types";
@@ -26,7 +24,9 @@ import {
   dadosGeraisToDisplay,
   type DadosGeraisForm,
 } from "./dados-gerais-modal";
+import { CondominioDadosSection } from "./condominio-dados-section";
 import { Grid, Info, Pendencia, SectionTitle } from "./detail-ui";
+import { ProntidaoExportacaoPanel } from "./prontidao-exportacao-panel";
 import { RepresentanteModal } from "./representante-modal";
 
 export function VisaoGeralTab({ emp }: { emp: EmpreendimentoView }) {
@@ -95,6 +95,13 @@ export function VisaoGeralTab({ emp }: { emp: EmpreendimentoView }) {
 
   const pendenciasVisao = [...emp.pendenciasAbertas, ...pendenciasJuridicas];
 
+  const matriculaNumeroDisplay =
+    imovel.matriculaNumero !== "—" ? imovel.matriculaNumero : dados.matricula;
+  const matriculaExtensoDisplay =
+    imovel.matriculaExtenso !== "—"
+      ? imovel.matriculaExtenso
+      : matriculaPorExtenso(dados.matricula) || "—";
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
       <div className="lg:col-span-2 space-y-5">
@@ -112,14 +119,53 @@ export function VisaoGeralTab({ emp }: { emp: EmpreendimentoView }) {
           </div>
           <Grid>
             <Info label="Nome" value={dados.nome} />
-            <Info label="Endereço" value={dados.endereco} />
-            <Info label="Cidade / UF" value={`${dados.cidade}/${dados.uf}`} />
-            <Info label="Lote / Quadra" value={formatLoteQuadra(dados.lote, dados.quadra)} />
-            <Info label="Matrícula" value={dados.matricula} />
+            <div className="md:col-span-2">
+              <Info label="Endereço" value={dados.endereco} />
+            </div>
+            <Info label="Loteamento" value={imovel.loteamento} />
+            <Info label="Lote (nº)" value={imovel.loteNumero !== "—" ? imovel.loteNumero : dados.lote} />
+            <Info
+              label="Lote (por extenso)"
+              value={imovel.loteExtenso !== "—" ? imovel.loteExtenso : "—"}
+            />
+            <Info
+              label="Quadra (nº)"
+              value={imovel.quadraNumero !== "—" ? imovel.quadraNumero : dados.quadra}
+            />
+            <Info
+              label="Quadra (por extenso)"
+              value={imovel.quadraExtenso !== "—" ? imovel.quadraExtenso : "—"}
+            />
+            <Info
+              label="Cidade / Comarca"
+              value={
+                imovel.cidade !== "—" || imovel.comarca !== "—"
+                  ? `${imovel.cidade !== "—" ? imovel.cidade : dados.cidade} / ${imovel.comarca !== "—" ? imovel.comarca : "—"}`
+                  : `${dados.cidade}/${dados.uf}`
+              }
+            />
+            <Info
+              label="Estado"
+              value={formatEstadoUf(
+                imovel.estado !== "—" ? imovel.estado : dados.uf !== "—" ? dados.uf : "",
+                imovel.estadoExtenso !== "—" ? imovel.estadoExtenso : "",
+              )}
+            />
             <Info
               label="Área do terreno"
-              value={emp.areaTerreno > 0 ? `${fmtNum(emp.areaTerreno, 2)} m²` : "—"}
+              value={
+                imovel.areaNumero !== "—"
+                  ? `${imovel.areaNumero} m²`
+                  : emp.areaTerreno > 0
+                    ? `${fmtNum(emp.areaTerreno, 2)} m²`
+                    : "—"
+              }
             />
+            <Info label="Área (por extenso)" value={imovel.areaExtenso} />
+            <Info label="Benfeitorias" value={imovel.benfeitorias} />
+            <Info label="Matrícula (nº)" value={matriculaNumeroDisplay} />
+            <Info label="Matrícula (por extenso)" value={matriculaExtensoDisplay} />
+            <Info label="Cartório de registro" value={imovel.cartorio} />
           </Grid>
         </Card>
 
@@ -222,80 +268,7 @@ export function VisaoGeralTab({ emp }: { emp: EmpreendimentoView }) {
           )}
         </Card>
 
-        <Card className="p-6 border-border shadow-none space-y-5">
-          <div className="flex items-center justify-between">
-            <SectionTitle icon={MapPin}>Propriedade e localização do imóvel</SectionTitle>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => toast("Edição do imóvel — simulada.")}
-            >
-              <Pencil className="h-3.5 w-3.5" /> Editar
-            </Button>
-          </div>
-          <Grid>
-            <Info label="Lote (nº)" value={imovel.loteNumero} />
-            <Info label="Lote (por extenso)" value={imovel.loteExtenso} />
-            <Info label="Quadra (nº)" value={imovel.quadraNumero} />
-            <Info label="Quadra (por extenso)" value={imovel.quadraExtenso} />
-            <Info label="Loteamento" value={imovel.loteamento} />
-            <Info label="Cidade / Comarca" value={`${imovel.cidade} / ${imovel.comarca}`} />
-            <Info
-              label="Estado"
-              value={formatEstadoUf(
-                imovel.estado === "—" ? "" : imovel.estado,
-                imovel.estadoExtenso === "—" ? "" : imovel.estadoExtenso,
-              )}
-            />
-            <Info label="Área do terreno" value={`${imovel.areaNumero} m²`} />
-            <Info label="Área (por extenso)" value={imovel.areaExtenso} />
-            <Info label="Benfeitorias" value={imovel.benfeitorias} />
-            <Info label="Matrícula (nº)" value={imovel.matriculaNumero} />
-            <Info label="Matrícula (por extenso)" value={imovel.matriculaExtenso} />
-            <Info label="Cartório de registro" value={imovel.cartorio} />
-          </Grid>
-
-          <div className="h-px bg-border" />
-
-          <div className="flex items-center justify-between">
-            <SectionTitle icon={Ruler}>Confrontações</SectionTitle>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => toast("Edição das confrontações — simulada.")}
-            >
-              <Pencil className="h-3.5 w-3.5" /> Editar
-            </Button>
-          </div>
-          {imovel.confrontacoes.length === 0 ? (
-            <div className="border border-dashed border-border rounded-lg p-6 text-center text-sm text-muted-foreground">
-              Nenhuma confrontação cadastrada.
-            </div>
-          ) : (
-            <div className="border border-border rounded-lg overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
-                  <tr>
-                    <th className="text-left px-3 py-2 font-medium">Direção</th>
-                    <th className="text-left px-3 py-2 font-medium">Confrontante</th>
-                    <th className="text-left px-3 py-2 font-medium text-mono-tabular">Medida</th>
-                    <th className="text-left px-3 py-2 font-medium text-mono-tabular">Azimute</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {imovel.confrontacoes.map((c) => (
-                    <tr key={c.direcao} className="border-t border-border">
-                      <td className="px-3 py-2 font-medium">{c.direcao}</td>
-                      <td className="px-3 py-2 text-foreground/90">{c.confrontante}</td>
-                      <td className="px-3 py-2 text-mono-tabular">{c.medida}</td>
-                      <td className="px-3 py-2 text-mono-tabular">{c.azimute}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Card>
+        <CondominioDadosSection emp={emp} />
 
         <Card className="p-6 border-border shadow-none space-y-5">
           <SectionTitle icon={FileText}>Dados técnicos</SectionTitle>
@@ -307,48 +280,27 @@ export function VisaoGeralTab({ emp }: { emp: EmpreendimentoView }) {
             <Info label="ART / RRT" value={emp.art} />
             <Info label="Status" value={emp.status} />
           </Grid>
-
-          <div className="h-px bg-border" />
-
-          <SectionTitle icon={Building2}>Resumo do condomínio</SectionTitle>
-          <Grid>
-            <Info label="Torres" value={`${emp.torres}`} />
-            <Info label="Pavimentos" value={`${emp.pavimentos}`} />
-            <Info label="Unidades" value={`${emp.unidades}`} />
-            <Info label="Vagas" value={`${emp.vagas}`} />
-            <Info
-              label="Área privativa total"
-              value={emp.areaPrivativaTotal > 0 ? fmtArea(emp.areaPrivativaTotal) : "—"}
-            />
-            <Info
-              label="Área comum total"
-              value={emp.areaComumTotal > 0 ? fmtArea(emp.areaComumTotal) : "—"}
-            />
-          </Grid>
         </Card>
       </div>
 
-      <Card className="p-6 border-border shadow-none space-y-4 h-fit">
-        <SectionTitle icon={AlertTriangle}>Pendências</SectionTitle>
-        {pendenciasVisao.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhuma pendência aberta.</p>
-        ) : (
-          <ul className="space-y-2.5">
-            {pendenciasVisao.map((p, i) => (
-              <Pendencia key={`p-${i}`} tone={p.tone} texto={p.texto} />
-            ))}
-          </ul>
+      <div className="space-y-5 h-fit">
+        {empreendimentoId > 0 && (
+          <ProntidaoExportacaoPanel empreendimentoId={empreendimentoId} compact />
         )}
-        <div className="h-px bg-border" />
-        <div>
-          <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
-            Próxima ação
-          </div>
-          <Button className="w-full" variant="outline">
-            Revisar unidades pendentes <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </Card>
+
+        <Card className="p-6 border-border shadow-none space-y-4">
+          <SectionTitle icon={AlertTriangle}>Pendências</SectionTitle>
+          {pendenciasVisao.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhuma pendência aberta.</p>
+          ) : (
+            <ul className="space-y-2.5">
+              {pendenciasVisao.map((p, i) => (
+                <Pendencia key={`p-${i}`} tone={p.tone} texto={p.texto} />
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
 
       <RepresentanteModal
         open={modalAberto}

@@ -14,6 +14,8 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/features/auth/use-auth";
 import { Save } from "lucide-react";
 
+import { matriculaPorExtenso } from "@/lib/numero-extenso";
+
 import { useUpdateEmpreendimento } from "../hooks";
 import type { EmpreendimentoView } from "../types";
 import { Field } from "./detail-ui";
@@ -76,6 +78,8 @@ export function DadosGeraisModal({
 
   const set = <K extends keyof DadosGeraisForm>(key: K, value: DadosGeraisForm[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
+
+  const matriculaExtensoPreview = matriculaPorExtenso(form.matricula);
 
   const handleSalvar = async () => {
     if (!membership) {
@@ -152,13 +156,24 @@ export function DadosGeraisModal({
               <Input value={form.quadra} onChange={(e) => set("quadra", e.target.value)} />
             </Field>
           </div>
-          <Field label="Matrícula">
-            <Input
-              value={form.matricula}
-              onChange={(e) => set("matricula", e.target.value)}
-              placeholder="Ex.: 76.476"
-            />
-          </Field>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Field label="Matrícula">
+              <Input
+                value={form.matricula}
+                onChange={(e) => set("matricula", e.target.value)}
+                placeholder="Ex.: 76.476"
+              />
+            </Field>
+            <Field label="Matrícula (por extenso)">
+              <Input
+                value={matriculaExtensoPreview}
+                readOnly
+                tabIndex={-1}
+                className="bg-muted/40 text-muted-foreground"
+                placeholder="Preenchido automaticamente"
+              />
+            </Field>
+          </div>
         </div>
 
         <DialogFooter>

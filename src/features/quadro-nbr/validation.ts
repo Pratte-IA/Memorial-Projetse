@@ -1,5 +1,6 @@
 import type { AlertaValidacao, DocumentoNbrExtraido, QuadroId, ResultadoValidacao } from "./types";
 import { getQuadroById } from "./parser";
+import { getQuadroIvBTitulo } from "./quadro-iv";
 import {
   cellNum,
   designacaoParaExibicao,
@@ -124,8 +125,9 @@ export function validarQuadroAtual(
 
   if (quadroId === "qivb") {
     const qivb = getQuadroById(documento, "qivb");
+    const titulo = getQuadroIvBTitulo(documento);
     if (!qivb?.linhas.length) {
-      addAlerta(alertas, "erro", "qivb", "Nenhuma unidade extraída do Quadro IV B.");
+      addAlerta(alertas, "erro", "qivb", `Nenhuma unidade extraída do ${titulo}.`);
     }
   }
 
@@ -156,6 +158,7 @@ export function validarQuadroAtual(
 
 export function validarCruzamento(documento: DocumentoNbrExtraido): ResultadoValidacao {
   const alertas: AlertaValidacao[] = [];
+  const tituloQivb = getQuadroIvBTitulo(documento);
 
   const qi = getQuadroById(documento, "qi");
   const qiii = getQuadroById(documento, "qiii");
@@ -190,9 +193,9 @@ export function validarCruzamento(documento: DocumentoNbrExtraido): ResultadoVal
       alertas,
       "erro",
       "qii",
-      `Contagem de unidades diverge: Quadro II (${countQii}) vs Quadro IV B (${countQivb}).`,
+      `Contagem de unidades diverge: Quadro II (${countQii}) vs ${tituloQivb} (${countQivb}).`,
       "qivb",
-      detalhesContagemUnidades("Quadro II", "Quadro IV B", apenasEmA, apenasEmB),
+      detalhesContagemUnidades("Quadro II", tituloQivb, apenasEmA, apenasEmB),
     );
   }
 
@@ -205,9 +208,9 @@ export function validarCruzamento(documento: DocumentoNbrExtraido): ResultadoVal
       alertas,
       "erro",
       "qivb",
-      `Contagem de unidades diverge: Quadro IV B (${countQivb}) vs Quadro Resumo (${countResumo}).`,
+      `Contagem de unidades diverge: ${tituloQivb} (${countQivb}) vs Quadro Resumo (${countResumo}).`,
       "resumo",
-      detalhesContagemUnidades("Quadro IV B", "Quadro Resumo", apenasEmA, apenasEmB),
+      detalhesContagemUnidades(tituloQivb, "Quadro Resumo", apenasEmA, apenasEmB),
     );
   }
 
@@ -225,7 +228,7 @@ export function validarCruzamento(documento: DocumentoNbrExtraido): ResultadoVal
         alertas,
         "aviso",
         "resumo",
-        `${divergentesArea.length} unidade(s) com área total divergente entre Quadro IV B e Quadro Resumo.`,
+        `${divergentesArea.length} unidade(s) com área total divergente entre ${tituloQivb} e Quadro Resumo.`,
         "qivb",
         [{ titulo: "Unidades com área total diferente", unidades: divergentesArea }],
       );

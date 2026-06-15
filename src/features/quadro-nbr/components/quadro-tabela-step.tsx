@@ -18,6 +18,7 @@ import {
   type StickyColumnStyle,
   type TabelaColuna,
 } from "./quadro-tabela-columns";
+import { cellEditDisplayValue, updateLinhaInQuadro } from "./quadro-tabela-edit";
 import { GroupedTableHeader } from "./grouped-table-header";
 import { usesGroupedHeader } from "./quadro-grouped-header";
 
@@ -55,9 +56,10 @@ function textColumnClassNames(col: TabelaColuna<unknown>, sticky: StickyColumnSt
   return "";
 }
 
-export function QuadroTabelaStep({ quadro, alertas, onIrParaQuadro }: QuadroTabelaStepProps) {
+export function QuadroTabelaStep({ quadro, alertas, onChange, onIrParaQuadro }: QuadroTabelaStepProps) {
   const [page, setPage] = useState(0);
   const [filtro, setFiltro] = useState("");
+  const editavel = Boolean(onChange);
 
   const view = buildQuadroTabelaView(quadro);
 
@@ -82,7 +84,7 @@ export function QuadroTabelaStep({ quadro, alertas, onIrParaQuadro }: QuadroTabe
   return (
     <QuadroStepLayout
       titulo={quadro.titulo}
-      descricao={`${linhas.length} registro(s). Exibindo ${colunas.length} coluna(s) com dados (colunas vazias ou zeradas são omitidas).`}
+      descricao={`${linhas.length} registro(s). ${editavel ? "Clique nas células para corrigir valores." : "Exibindo " + colunas.length + " coluna(s) com dados."}`}
       alertas={alertas}
       onIrParaQuadro={onIrParaQuadro}
     >
@@ -153,8 +155,10 @@ export function QuadroTabelaStep({ quadro, alertas, onIrParaQuadro }: QuadroTabe
                 );
               }
 
+              const globalIndex = linhas.indexOf(linha);
+
               return (
-              <TableRow key={index} className="group">
+              <TableRow key={globalIndex >= 0 ? globalIndex : index} className="group">
                 {colunas.map((col, colIndex) => {
                   const colDef = col as TabelaColuna<unknown>;
                   const raw = colDef.getValue(linha);
@@ -163,11 +167,13 @@ export function QuadroTabelaStep({ quadro, alertas, onIrParaQuadro }: QuadroTabe
                     ? formatCellValue(raw, true, decimals)
                     : formatCellValue(raw, false, decimals);
                   const sticky = getStickyColumnStyle(colunas as TabelaColuna<unknown>[], colIndex);
+                  const fieldKey = colDef.fieldKey;
+                  const canEdit = editavel && fieldKey && globalIndex >= 0;
 
                   return (
                     <TableCell
                       key={col.id}
-                      className={`text-xs ${colDef.mono ? "text-mono-tabular" : ""} ${textColumnClassNames(
+                      className={`text-xs p-1 ${colDef.mono ? "text-mono-tabular" : ""} ${textColumnClassNames(
                         colDef,
                         sticky,
                       )} ${colDef.alwaysShow || colDef.sticky ? "font-medium" : ""} ${
@@ -179,7 +185,20 @@ export function QuadroTabelaStep({ quadro, alertas, onIrParaQuadro }: QuadroTabe
                           : undefined
                       }
                     >
-                      {display}
+                      {canEdit ? (
+                        <Input
+                          className={`h-8 text-xs ${colDef.mono ? "text-mono-tabular" : ""} ${colDef.wrap ? "min-w-[12rem]" : "min-w-[5rem]"}`}
+                          value={cellEditDisplayValue(raw as string | number | null)}
+                          onChange={(e) => {
+                            if (!onChange || !fieldKey) return;
+                            onChange(
+                              updateLinhaInQuadro(quadro, globalIndex, fieldKey, e.target.value),
+                            );
+                          }}
+                        />
+                      ) : (
+                        display
+                      )}
                     </TableCell>
                   );
                 })}

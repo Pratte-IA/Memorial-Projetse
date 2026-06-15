@@ -8,7 +8,11 @@ export const SHEET_MATCHERS: Record<Exclude<QuadroId, "preliminares">, Array<str
   qii: [/^QUADRO II$/i],
   qiii: [/^QUADRO III$/i],
   qiva: [/^QUADRO IV\s*A$/i],
-  qivb: [/^QUADRO IV\s*B$/i, /^QUADRO IV\s*B[\s.]?1$/i, /^QUADRO IV B1$/i],
+  qivb: [
+    /^QUADRO IV\s*B[\s._-]?[1I]$/i,
+    /^QUADRO IV\s*B1$/i,
+    /^QUADRO IV\s*B(?![\s._-]?[1I])/i,
+  ],
   qv: [/^QUADRO V$/i],
   qvi: [/^QUADRO VI$/i],
   qvii: [/^QUADRO VII$/i],
@@ -108,6 +112,9 @@ export const QUADROS_WIZARD_STEPS: Array<{
     descricao: "Confira alertas entre quadros antes de criar o empreendimento.",
   },
 ];
+
+/** Passos exibidos no detalhe do empreendimento (continuidade pós-importação, sem upload). */
+export const QUADROS_DETAIL_STEPS = QUADROS_WIZARD_STEPS.filter((s) => s.id !== "upload");
 
 export const QUADRO_TITULOS: Record<QuadroId, string> = {
   preliminares: "Informações Preliminares",

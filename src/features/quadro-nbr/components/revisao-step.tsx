@@ -2,20 +2,24 @@ import { Card } from "@/components/ui/card";
 import { fmtNum } from "@/lib/format";
 import type { DocumentoNbrExtraido, QuadroId } from "../types";
 import { getQuadroById } from "../parser";
+import { getQuadroIvBTitulo, isDocumentoQuadroIvB1 } from "../quadro-iv";
 import { AlertasValidacao } from "./alertas-validacao";
 import { validarCruzamento } from "../validation";
 
 interface RevisaoStepProps {
   documento: DocumentoNbrExtraido;
   onIrParaQuadro?: (quadroId: QuadroId) => void;
+  somenteLeitura?: boolean;
 }
 
-export function RevisaoStep({ documento, onIrParaQuadro }: RevisaoStepProps) {
+export function RevisaoStep({ documento, onIrParaQuadro, somenteLeitura }: RevisaoStepProps) {
   const cruzamento = validarCruzamento(documento);
   const qi = getQuadroById(documento, "qi");
   const qii = getQuadroById(documento, "qii");
   const qivb = getQuadroById(documento, "qivb");
   const resumo = getQuadroById(documento, "resumo");
+  const tituloQivb = getQuadroIvBTitulo(documento);
+  const modoB1 = isDocumentoQuadroIvB1(documento);
 
   const nome =
     documento.preliminares.campos.find((c) => c.chave === "projeto_nome")?.valor ??
@@ -26,7 +30,9 @@ export function RevisaoStep({ documento, onIrParaQuadro }: RevisaoStepProps) {
       <div>
         <h3 className="text-sm font-semibold">Revisão cruzada</h3>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Confira a consistência entre os quadros antes de criar o empreendimento.
+          {somenteLeitura
+            ? "Consistência verificada na importação. Consulte os alertas abaixo se houver divergências."
+            : "Confira a consistência entre os quadros antes de criar o empreendimento."}
         </p>
       </div>
 
@@ -73,9 +79,15 @@ export function RevisaoStep({ documento, onIrParaQuadro }: RevisaoStepProps) {
               <dd className="font-medium text-mono-tabular">{qii?.linhas.length ?? 0}</dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="text-muted-foreground">Unidades (QIV B)</dt>
+              <dt className="text-muted-foreground">Unidades ({tituloQivb.replace("Quadro ", "")})</dt>
               <dd className="font-medium text-mono-tabular">{qivb?.linhas.length ?? 0}</dd>
             </div>
+            {modoB1 && (
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Modo IV B.1</dt>
+                <dd className="font-medium text-right text-xs">Substitui IV A e IV B</dd>
+              </div>
+            )}
             <div className="flex justify-between gap-4">
               <dt className="text-muted-foreground">Unidades (Resumo)</dt>
               <dd className="font-medium text-mono-tabular">{resumo?.linhas.length ?? 0}</dd>

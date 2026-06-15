@@ -8,6 +8,7 @@ import type {
   LinhaUnidadeArea,
   LinhaUnidadeReal,
   QuadroExtraido,
+  QuadroIVB,
   QuadroResumo,
   WithFormatDecimals,
 } from "../types";
@@ -15,6 +16,8 @@ import type {
 export interface TabelaColuna<T> {
   id: string;
   label: string;
+  /** Chave do campo na linha para edição inline. */
+  fieldKey?: string;
   alwaysShow?: boolean;
   /** Coluna fixa ao rolar horizontalmente (identificadores: pavimento, unidade, torre). */
   sticky?: boolean;
@@ -97,6 +100,7 @@ function numCol<T extends WithFormatDecimals>(
   return {
     id,
     label,
+    fieldKey,
     alwaysShow,
     mono: true,
     getValue,
@@ -111,10 +115,12 @@ function textCol<T>(
   alwaysShow?: boolean,
   truncate?: boolean,
   sticky?: boolean,
+  fieldKey?: string,
 ): TabelaColuna<T> {
   return {
     id,
     label,
+    fieldKey: fieldKey ?? id,
     alwaysShow,
     truncate,
     sticky: sticky ?? alwaysShow ?? false,
@@ -173,20 +179,127 @@ const QII_COLS: TabelaColuna<LinhaUnidadeArea>[] = [
 const QIVB_COLS: TabelaColuna<LinhaUnidadeReal>[] = [
   textCol("designacao", "A — Unidade", (r) => r.designacao, true),
   textCol("bloco", "Bloco / Torre", (r) => r.bloco),
-  numCol("colB", "B — Área priv. principal", "areaPrivativaPrincipal", (r) => r.areaPrivativaPrincipal),
-  numCol("colC", "C — Área priv. acessória", "areaPrivativaAcessoria", (r) => r.areaPrivativaAcessoria),
-  numCol("colD", "D — Área priv. total", "areaPrivativaTotal", (r) => r.areaPrivativaTotal),
-  numCol("colE", "E — Área uso comum", "areaUsoComum", (r) => r.areaUsoComum),
-  numCol("colF", "F — Área real total", "areaRealTotal", (r) => r.areaRealTotal),
-  numCol("colG", "G — Coef. proporcionalidade", "coeficienteProporcionalidade", (r) => r.coeficienteProporcionalidade),
-  numCol("colQtd", "Qtd. idênticas", "quantidadeIdenticas", (r) => r.quantidadeIdenticas),
+  numCol(
+    "colB",
+    "B — Área priv. principal",
+    "areaPrivativaPrincipal",
+    (r) => r.areaPrivativaPrincipal,
+    true,
+  ),
+  numCol(
+    "colC",
+    "C — Área priv. acessória",
+    "areaPrivativaAcessoria",
+    (r) => r.areaPrivativaAcessoria,
+    true,
+  ),
+  numCol(
+    "colD",
+    "D — Área priv. total",
+    "areaPrivativaTotal",
+    (r) => r.areaPrivativaTotal,
+    true,
+  ),
+  numCol("colE", "E — Área uso comum", "areaUsoComum", (r) => r.areaUsoComum, true),
+  numCol("colF", "F — Área real total", "areaRealTotal", (r) => r.areaRealTotal, true),
+  numCol(
+    "colG",
+    "G — Coef. proporcionalidade",
+    "coeficienteProporcionalidade",
+    (r) => r.coeficienteProporcionalidade,
+    true,
+  ),
+  numCol(
+    "colH",
+    "H — Qtd. idênticas",
+    "quantidadeIdenticas",
+    (r) => r.quantidadeIdenticas,
+    true,
+  ),
   {
-    id: "observacoes",
-    label: "Observações",
+    id: "colI",
+    label: "I — Observações",
+    fieldKey: "observacoes",
+    alwaysShow: true,
     wrap: true,
     getValue: (r) => r.observacoes || null,
   },
 ];
+
+const QIVB1_COLS: TabelaColuna<LinhaUnidadeReal>[] = [
+  textCol("designacao", "A — Unidade", (r) => r.designacao, true),
+  textCol("bloco", "Bloco / Torre", (r) => r.bloco),
+  numCol(
+    "colB",
+    "B — Área priv. principal",
+    "areaPrivativaPrincipal",
+    (r) => r.areaPrivativaPrincipal,
+    true,
+  ),
+  numCol(
+    "colC",
+    "C — Área priv. acessória",
+    "areaPrivativaAcessoria",
+    (r) => r.areaPrivativaAcessoria,
+    true,
+  ),
+  numCol(
+    "colD",
+    "D — Área priv. total",
+    "areaPrivativaTotal",
+    (r) => r.areaPrivativaTotal,
+    true,
+  ),
+  numCol("colE", "E — Área uso comum", "areaUsoComum", (r) => r.areaUsoComum, true),
+  numCol("colF", "F — Área real total", "areaRealTotal", (r) => r.areaRealTotal, true),
+  numCol(
+    "colG",
+    "G — Terreno exclusivo",
+    "areaTerrenoExclusivo",
+    (r) => r.areaTerrenoExclusivo ?? null,
+    true,
+  ),
+  numCol(
+    "colH",
+    "H — Terreno comum (prop.)",
+    "areaTerrenoComum",
+    (r) => r.areaTerrenoComum ?? null,
+    true,
+  ),
+  numCol(
+    "colI",
+    "I — Coef. proporcionalidade",
+    "coeficienteProporcionalidade",
+    (r) => r.coeficienteProporcionalidade,
+    true,
+  ),
+  numCol(
+    "colJ",
+    "J — Coef. terreno",
+    "coeficienteTerreno",
+    (r) => r.coeficienteTerreno ?? null,
+    true,
+  ),
+  numCol(
+    "colQtd",
+    "Qtd. idênticas",
+    "quantidadeIdenticas",
+    (r) => r.quantidadeIdenticas,
+    true,
+  ),
+  {
+    id: "observacoes",
+    label: "Observações",
+    fieldKey: "observacoes",
+    alwaysShow: true,
+    wrap: true,
+    getValue: (r) => r.observacoes || null,
+  },
+];
+
+function buildQivbColumns(quadro: QuadroIVB): TabelaColuna<LinhaUnidadeReal>[] {
+  return quadro.variante === "b1" ? QIVB1_COLS : QIVB_COLS;
+}
 
 function buildResumoCols(labels: ConfrontacaoLabels): TabelaColuna<LinhaResumo>[] {
   return [
@@ -228,24 +341,28 @@ function buildResumoCols(labels: ConfrontacaoLabels): TabelaColuna<LinhaResumo>[
     {
       id: "confNorte",
       label: labels.norte,
+      fieldKey: "confrontacaoNorte",
       wrap: true,
       getValue: (r) => r.confrontacaoNorte || null,
     },
     {
       id: "confSul",
       label: labels.sul,
+      fieldKey: "confrontacaoSul",
       wrap: true,
       getValue: (r) => r.confrontacaoSul || null,
     },
     {
       id: "confLeste",
       label: labels.leste,
+      fieldKey: "confrontacaoLeste",
       wrap: true,
       getValue: (r) => r.confrontacaoLeste || null,
     },
     {
       id: "confOeste",
       label: labels.oeste,
+      fieldKey: "confrontacaoOeste",
       wrap: true,
       getValue: (r) => r.confrontacaoOeste || null,
     },
@@ -272,20 +389,20 @@ const QIVA_COLS: TabelaColuna<QivaLinha>[] = [
 
 const QVI_COLS: TabelaColuna<LinhaEquipamento>[] = [
   textCol("equipamento", "Equipamento", (r) => r.equipamento, true),
-  textCol("tipo", "Tipo / Marca", (r) => r.tipoMarca),
+  textCol("tipo", "Tipo / Marca", (r) => r.tipoMarca, false, false, false, "tipoMarca"),
   textCol("acabamento", "Acabamento", (r) => r.acabamento),
 ];
 
 const ACABAMENTO_COLS: TabelaColuna<LinhaAcabamento>[] = [
   textCol("dependencia", "DEPENDÊNCIAS", (r) => r.dependencia, true, false, true),
-  textCol("pisoRev", "Revestimento", (r) => r.pisoRevestimento),
-  textCol("pisoAcab", "Acabamento", (r) => r.pisoAcabamento),
+  textCol("pisoRev", "Revestimento", (r) => r.pisoRevestimento, false, false, false, "pisoRevestimento"),
+  textCol("pisoAcab", "Acabamento", (r) => r.pisoAcabamento, false, false, false, "pisoAcabamento"),
   textCol("pisoSoleira", "Soleira", (r) => r.pisoSoleira),
-  textCol("paredeRev", "Revestimento", (r) => r.paredeRevestimento),
-  textCol("paredeAcab", "Acabamento", (r) => r.paredeAcabamento),
+  textCol("paredeRev", "Revestimento", (r) => r.paredeRevestimento, false, false, false, "paredeRevestimento"),
+  textCol("paredeAcab", "Acabamento", (r) => r.paredeAcabamento, false, false, false, "paredeAcabamento"),
   textCol("paredeRodape", "Rodapé", (r) => r.paredeRodape),
-  textCol("tetoRev", "Revestimento", (r) => r.tetoRevestimento),
-  textCol("tetoAcab", "Acabamento", (r) => r.tetoAcabamento),
+  textCol("tetoRev", "Revestimento", (r) => r.tetoRevestimento, false, false, false, "tetoRevestimento"),
+  textCol("tetoAcab", "Acabamento", (r) => r.tetoAcabamento, false, false, false, "tetoAcabamento"),
   textCol("peitoril", "Peitoril", (r) => r.peitoril),
 ];
 
@@ -319,8 +436,9 @@ export function buildQuadroTabelaView(quadro: QuadroExtraido): QuadroTabelaViewM
 
   if (quadro.id === "qivb") {
     const linhas = quadro.linhas as LinhaUnidadeReal[];
+    const allCols = buildQivbColumns(quadro);
     return {
-      colunas: filterColumnsWithData(linhas, QIVB_COLS) as TabelaColuna<unknown>[],
+      colunas: filterColumnsWithData(linhas, allCols) as TabelaColuna<unknown>[],
       linhas,
       filtroFn: (row, filtro) =>
         (row as LinhaUnidadeReal).designacao.toLowerCase().includes(filtro.toLowerCase()),

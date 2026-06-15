@@ -15,6 +15,8 @@ export interface QuadroTecnicoRecord {
 
 export interface UploadQuadroInput {
   file: File;
+  /** Buffer original garante re-upload fiel após parse no wizard. */
+  fileBuffer?: ArrayBuffer;
   empreendimentoId: number;
   organizationId: number;
   profileId: number;

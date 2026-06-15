@@ -45,7 +45,7 @@ values (
   'quadros-tecnicos',
   false,
   52428800,
-  array['application/pdf']
+  array['application/pdf', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel', 'text/csv']
 )
 on conflict (id) do update set
   public = excluded.public,

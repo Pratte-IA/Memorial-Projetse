@@ -90,6 +90,7 @@ export const QUADRO_III_FIELD_DEFS: QuadroIIIFieldDef[] = [
     rotulo: "4.2 — Área real de uso comum global",
     grupo: "Áreas globais (item 4)",
     itemNumber: "4.2",
+    labelBusca: "área real de uso comum",
   },
   {
     chave: "area_real_global",
@@ -108,6 +109,7 @@ export const QUADRO_III_FIELD_DEFS: QuadroIIIFieldDef[] = [
     rotulo: "4.5 — Área equivalente de uso comum global",
     grupo: "Áreas globais (item 4)",
     itemNumber: "4.5",
+    labelBusca: "área equivalente de uso comum",
   },
   {
     chave: "area_equiv_global",
@@ -332,7 +334,8 @@ function resolveFieldValue(
   }
 
   if (def.labelBusca) {
-    return findLabelValue(matrix, def.labelBusca);
+    const byText = findLabelValue(matrix, def.labelBusca);
+    if (byText) return byText;
   }
 
   return null;

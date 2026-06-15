@@ -4,17 +4,14 @@ import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { DadosExtraidosTab } from "@/features/dados-extraidos/components/dados-extraidos-tab";
 import { MemorialTab } from "@/features/memorial/components/memorial-tab";
-import { QuadroTecnicoTab } from "@/features/quadros-tecnicos/components/quadro-tecnico-tab";
-import { UnidadesTab } from "@/features/unidades/components/unidades-tab";
 import type { EmpreendimentoView } from "../types";
 import { fmtNum } from "@/lib/format";
 import { AlertTriangle, Building2, Download, Hash, Ruler, Sparkles, Users } from "lucide-react";
 
 import { EMPREENDIMENTO_DETAIL_ABAS } from "../constants/detail-mocks";
 import type { EmpreendimentoDetailAba } from "../types/detail-types";
-import { CondominioTab } from "./condominio-tab";
+import { DadosValidadosTab } from "./dados-validados-tab";
 import { Mini } from "./detail-ui";
 import { ExportacoesTab } from "./exportacoes-tab";
 import { HistoricoTab } from "./historico-tab";
@@ -25,7 +22,7 @@ interface EmpreendimentoDetailPageProps {
 }
 
 export function EmpreendimentoDetailPage({ emp }: EmpreendimentoDetailPageProps) {
-  const [aba, setAba] = useState<EmpreendimentoDetailAba>("visao");
+  const [aba, setAba] = useState<EmpreendimentoDetailAba>("dados-validados");
 
   return (
     <>
@@ -107,28 +104,12 @@ export function EmpreendimentoDetailPage({ emp }: EmpreendimentoDetailPageProps)
       </div>
 
       <div className="p-8">
+        {aba === "dados-validados" && (
+          <DadosValidadosTab
+            empreendimentoId={/^\d+$/.test(emp.id) ? Number(emp.id) : null}
+          />
+        )}
         {aba === "visao" && <VisaoGeralTab emp={emp} />}
-        {aba === "quadro" && (
-          <QuadroTecnicoTab
-            emp={emp}
-            empreendimentoId={/^\d+$/.test(emp.id) ? Number(emp.id) : null}
-            onConcluir={() => setAba("dados")}
-          />
-        )}
-        {aba === "dados" && (
-          <DadosExtraidosTab
-            emp={emp}
-            empreendimentoId={/^\d+$/.test(emp.id) ? Number(emp.id) : null}
-            onConcluir={() => setAba("condominio")}
-          />
-        )}
-        {aba === "condominio" && <CondominioTab emp={emp} onConcluir={() => setAba("unidades")} />}
-        {aba === "unidades" && (
-          <UnidadesTab
-            empreendimentoId={/^\d+$/.test(emp.id) ? Number(emp.id) : null}
-            empreendimentoNome={emp.nome}
-          />
-        )}
         {aba === "memorial" && (
           <MemorialTab
             empreendimentoId={/^\d+$/.test(emp.id) ? Number(emp.id) : null}

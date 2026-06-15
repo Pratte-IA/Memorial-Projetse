@@ -5,8 +5,11 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Search, Pencil } from "lucide-react";
+import { Plus, Search, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/features/auth/use-auth";
+import { canManageOrg } from "@/features/auth/permissions";
+import { DeleteEmpreendimentoDialog } from "@/features/empreendimentos/components/delete-empreendimento-dialog";
 import { EditEmpreendimentoDialog } from "@/features/empreendimentos/components/edit-empreendimento-dialog";
 import { useEmpreendimentosList } from "@/features/empreendimentos/hooks";
 import { STATUS_FILTER_OPTIONS, statusLabelToDb } from "@/features/empreendimentos/status";
@@ -20,7 +23,10 @@ function Empreendimentos() {
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState("Todos");
   const [editItem, setEditItem] = useState<EmpreendimentoListItem | null>(null);
+  const [deleteItem, setDeleteItem] = useState<EmpreendimentoListItem | null>(null);
 
+  const { role } = useAuth();
+  const canDelete = canManageOrg(role);
   const { data: empreendimentos, isLoading, isError } = useEmpreendimentosList();
 
   const dbStatusFiltro = statusLabelToDb(filtro);
@@ -162,6 +168,18 @@ function Empreendimentos() {
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
+                          {canDelete && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              type="button"
+                              className="text-[var(--color-alerta)] hover:text-[var(--color-alerta)] hover:bg-[var(--color-alerta)]/10"
+                              onClick={() => setDeleteItem(e)}
+                              aria-label={`Excluir ${e.nome}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                           <Button variant="ghost" size="sm" asChild>
                             <Link to="/empreendimentos/$id" params={{ id: e.idParam }}>
                               Abrir
@@ -192,6 +210,14 @@ function Empreendimentos() {
         open={editItem !== null}
         onOpenChange={(open) => {
           if (!open) setEditItem(null);
+        }}
+      />
+
+      <DeleteEmpreendimentoDialog
+        item={deleteItem}
+        open={deleteItem !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteItem(null);
         }}
       />
     </>

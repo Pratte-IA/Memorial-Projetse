@@ -98,6 +98,12 @@ export interface LinhaUnidadeReal extends WithFormatDecimals {
   areaUsoComum: number | null;
   areaRealTotal: number | null;
   coeficienteProporcionalidade: number | null;
+  /** Quadro IV B.1 — coluna G */
+  areaTerrenoExclusivo?: number | null;
+  /** Quadro IV B.1 — coluna H */
+  areaTerrenoComum?: number | null;
+  /** Quadro IV B.1 — coluna J */
+  coeficienteTerreno?: number | null;
   quantidadeIdenticas: number | null;
   observacoes: string;
 }
@@ -192,9 +198,14 @@ export interface QuadroIVA extends QuadroExtraidoBase {
   >;
 }
 
+export type QuadroIvVariante = "padrao" | "b1";
+
 export interface QuadroIVB extends QuadroExtraidoBase {
   id: "qivb";
   linhas: LinhaUnidadeReal[];
+  /** `b1` quando a aba é Quadro IV B.1 (substitui IV A e IV B padrão). */
+  variante?: QuadroIvVariante;
+  nomeAba?: string;
 }
 
 export interface QuadroV extends QuadroExtraidoBase {
@@ -251,6 +262,8 @@ export interface DocumentoNbrExtraido {
   preliminares: QuadroPreliminares;
   /** IDs dos quadros encontrados no arquivo (exceto preliminares, sempre presente). */
   quadrosPresentes: QuadroId[];
+  /** `b1` quando o arquivo usa Quadro IV B.1 no lugar de IV A + IV B padrão. */
+  quadroIvVariante?: QuadroIvVariante;
 }
 
 export type SeveridadeAlerta = "erro" | "aviso" | "info";

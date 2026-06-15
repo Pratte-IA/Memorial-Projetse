@@ -1003,6 +1003,79 @@ export type Database = {
           },
         ];
       };
+      condominio_pavimentos: {
+        Row: {
+          area_equivalente: number | null;
+          area_real: number | null;
+          empreendimento_id: number;
+          fonte_quadro: string | null;
+          id: number;
+          nome: string;
+          ordem: number;
+          torre: string | null;
+        };
+        Insert: {
+          area_equivalente?: number | null;
+          area_real?: number | null;
+          empreendimento_id: number;
+          fonte_quadro?: string | null;
+          id?: number;
+          nome: string;
+          ordem?: number;
+          torre?: string | null;
+        };
+        Update: {
+          area_equivalente?: number | null;
+          area_real?: number | null;
+          empreendimento_id?: number;
+          fonte_quadro?: string | null;
+          id?: number;
+          nome?: string;
+          ordem?: number;
+          torre?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "condominio_pavimentos_empreendimento_id_fkey";
+            columns: ["empreendimento_id"];
+            isOneToOne: false;
+            referencedRelation: "empreendimentos";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      condominio_espacos_comuns: {
+        Row: {
+          empreendimento_id: number;
+          fonte_quadro: string | null;
+          id: number;
+          nome: string;
+          ordem: number;
+        };
+        Insert: {
+          empreendimento_id: number;
+          fonte_quadro?: string | null;
+          id?: number;
+          nome: string;
+          ordem?: number;
+        };
+        Update: {
+          empreendimento_id?: number;
+          fonte_quadro?: string | null;
+          id?: number;
+          nome?: string;
+          ordem?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "condominio_espacos_comuns_empreendimento_id_fkey";
+            columns: ["empreendimento_id"];
+            isOneToOne: false;
+            referencedRelation: "empreendimentos";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;

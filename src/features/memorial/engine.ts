@@ -4,9 +4,16 @@ import { isUnidadesSection } from "./status";
 import type { MemorialContextData, SecaoRecord } from "./types";
 
 export const UNIDADES_INTRO =
-  "Conforme os Quadros de Informações para Arquivo no Registro de Imóveis em anexo, assim se descrevem as futuras unidades autônomas do condomínio:";
+  "Conforme os documentos identificados na Cláusula anterior e os Quadros de Informações para Arquivo no Registro de Imóveis em anexo, que ficam fazendo parte integrante deste Instrumento, estes últimos de acordo com a Norma Brasileira nº 12.721/2006, da Associação Brasileira de Normas Técnicas – ABNT e com a mencionada Lei nº 4.591, assim se descrevem as futuras unidades autônomas do condomínio:";
 
 function resolvePath(context: MemorialContextData, path: string): string {
+  const root = context as unknown as Record<string, unknown>;
+  if (path in root && (typeof root[path] === "string" || typeof root[path] === "number")) {
+    const value = root[path];
+    if (value === null || value === "") return `{{${path}}}`;
+    return String(value);
+  }
+
   const parts = path.split(".");
   let current: unknown = context;
 

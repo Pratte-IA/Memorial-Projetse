@@ -231,45 +231,52 @@ export type SecaoMemorial = {
 export const secoesMemorial: SecaoMemorial[] = [
   {
     id: "qualificacao",
-    titulo: "Primeira – Qualificação da Incorporadora",
+    titulo: "Qualificação da Incorporadora",
     status: "Aprovada",
     conteudo:
       "PITANGUEIRAS SPE LTDA, pessoa jurídica de direito privado, inscrita no CNPJ sob o nº 63.310.140/0001-86, com sede na cidade de Cascavel, Estado do Paraná, neste ato representada na forma de seu contrato social, doravante denominada INCORPORADORA, vem, na forma da Lei Federal nº 4.591/64, submeter a registro o presente Memorial de Incorporação.",
   },
   {
     id: "propriedade",
-    titulo: "Segunda – Da Propriedade e Localização do Imóvel",
+    titulo: "Primeira – Da Propriedade e Localização do Imóvel",
     status: "Aprovada",
     conteudo:
       "O imóvel objeto desta incorporação é o lote de terreno urbano sob nº 13 (treze), da quadra nº 04 (quatro), localizado na Rua Ilhas Canárias, nº 359, na cidade de Cascavel, Estado do Paraná, com área total de 2.763,00 m² (dois mil setecentos e sessenta e três metros quadrados), conforme matrícula nº 48.291 do Cartório de Registro de Imóveis competente.",
   },
   {
     id: "incorporacao",
-    titulo: "Terceira – Da Incorporação Imobiliária",
+    titulo: "Segunda – Da Incorporação Imobiliária",
     status: "Em revisão",
     conteudo:
       "Que, pretendendo ela Incorporadora alienar frações do descrito terreno, representativas de unidades autônomas de edificações a serem erigidas sobre o mesmo imóvel, promove a incorporação imobiliária de tais edificações, para a ordenação jurídica da Lei nº 4.591, de 16 de dezembro de 1964, e todas as suas regulamentações e alterações posteriores, e do art. 1.331 e seguintes, da Lei nº 10.406 (Código Civil), de 10 de janeiro de 2002 (com vigência a partir de 11 de janeiro de 2003), e com a instituição de Condomínio Urbano Simples nos termos da Lei nº 13.465/17 e do Decreto Federal nº 9.310/18, na forma de condomínio edilício ou por unidades autônomas, sob a denominação de RESIDENCIAL MADRID.",
   },
   {
     id: "composicao",
-    titulo: "Quarta – Da Composição do Condomínio",
+    titulo: "Terceira – Da Composição do Condomínio",
     status: "Em revisão",
     conteudo:
       "O Condomínio com área total a ser edificada de 3.113,58 m² (três mil, cento e treze metros quadrados e cinquenta e oito centímetros quadrados), será constituído de 03 (três) torres, divididas em 5 (cinco) pavimentos cada, e uma área comum, a saber: Pavimento Térreo, medindo 844,26 m²; 1º Pavimento, medindo 567,33 m²; 2º Pavimento, medindo 567,33 m²; 3º Pavimento, medindo 567,33 m² e 4º Pavimento, medindo 567,33 m². A composição do condomínio será a seguinte: a) Partes de propriedade exclusiva (áreas privativas de 2.598,00 m²): às quais serão 60 (sessenta) apartamentos e 60 (sessenta) vagas de garagem descobertas, acessórias às unidades autônomas; b) Partes de propriedade comum (áreas de uso comum de 515,58 m²): que serão: Central GLP, Lixo, Circulação/Hall, Escada, Circulação de Veículos, Salão de Festas e Castelo d'água. Tudo conforme alocado no referido projeto arquitetônico.",
   },
   {
     id: "aprovacao",
-    titulo: "Quinta – Da Aprovação do Projeto Arquitetônico",
+    titulo: "Quarta – Da Aprovação do Projeto Arquitetônico",
     status: "Gerada",
     conteudo:
       "O projeto arquitetônico da edificação foi aprovado pelo IPC - Instituto de Planejamento de Cascavel, em 13 de abril de 2026, conforme Alvará de Construção no 334-26-CVL-ALV expedido pela referida Prefeitura. A responsabilidade técnica pelo projeto arquitetônico e pela elaboração dos quadros da NBR 12.721 é da Engenheira Civil Francieli Luize Wagner, inscrita no CREA/PR sob no 158.605/D e Anotação de Responsabilidade Técnica (ART) no 1720261664968. A responsabilidade técnica pela execução da obra é do Engenheiro Civil Marcio da Cruz Santos, inscrito no CREA/PR sob no 29260/D e Anotação de Responsabilidade Técnica (ART) no 1720262080080.",
   },
   {
     id: "unidades",
-    titulo: "Sexta – Da Descrição das Unidades Autônomas",
+    titulo: "Quinta – Da Descrição das Unidades Autônomas",
     status: "Com pendência",
     conteudo:
       "Conforme os documentos identificados na Cláusula anterior e os Quadros de Informações para Arquivo no Registro de Imóveis em anexo, que ficam fazendo parte integrante deste Instrumento, estes últimos de acordo com a Norma Brasileira no 12.721/2006, da Associação Brasileira de Normas Técnicas – ABNT e com a mencionada Lei no 4.591, assim se descrevem as futuras unidades autônomas do condomínio:",
+  },
+  {
+    id: "orcamento",
+    titulo: "Sexta – Do Orçamento da Edificação",
+    status: "Gerada",
+    conteudo:
+      "O custo global estimado da edificação, para fins do presente memorial de incorporação, é de R$ 11.943.030,00 (onze milhões, novecentos e quarenta e três mil e trinta reais), correspondente a 3.839,47 (três mil, oitocentos e trinta e nove vírgula quarenta e sete) vezes o CUB (Custo Unitário Básico) de R$ 3.110,60 (três mil, cento e dez reais e sessenta centavos), referente ao mês de fevereiro/2026, divulgado pelo Sinduscon Paraná.",
   },
   {
     id: "destinacao",
@@ -442,6 +449,7 @@ export const modelos: Modelo[] = [
 
 export type Clausula = {
   id: string;
+  ordem: number;
   titulo: string;
   categoria: string;
   resumo: string;
@@ -453,7 +461,8 @@ export type Clausula = {
 export const clausulas: Clausula[] = [
   {
     id: "c1",
-    titulo: "Primeira – Qualificação da Incorporadora",
+    ordem: 0,
+    titulo: "Qualificação da Incorporadora",
     categoria: "Incorporação",
     resumo: "Bloco padrão de qualificação jurídica da SPE incorporadora.",
     status: "Publicada",
@@ -477,7 +486,8 @@ export const clausulas: Clausula[] = [
   },
   {
     id: "c2",
-    titulo: "Segunda – Da Propriedade e Localização do Imóvel",
+    ordem: 1,
+    titulo: "Primeira – Da Propriedade e Localização do Imóvel",
     categoria: "Propriedade e Localização",
     resumo: "Qualificação do imóvel confrontas, matrícula, área e cartório de registro.",
     status: "Publicada",
@@ -512,17 +522,19 @@ export const clausulas: Clausula[] = [
   },
   {
     id: "c3",
-    titulo: "Terceira – Da Incorporação Imobiliária",
+    ordem: 2,
+    titulo: "Segunda – Da Incorporação Imobiliária",
     categoria: "Incorporação",
     resumo: "Declaração de incorporação nos termos da Lei 4.591/64 e do Código Civil.",
     status: "Publicada",
     variaveis: ["empreendimento.nome"],
     template:
-      "Que, pretendendo ela Incorporadora alienar frações ideais do lote de terreno urbano, representativas de unidades autônomas de edificações a serem erigidas sobre o mesmo imóvel, conforme o disposto na Cláusula anterior, promove a Incorporação Imobiliária de tais edificações, para a ordenação jurídica da Lei nº 4.591, de 16 de dezembro de 1964, e todas as suas regulamentações e alterações posteriores, e do art. 1.331 e seguintes, da Lei nº 10.406 (Código Civil), de 10 de janeiro de 2002 (com vigência a partir de 11 de janeiro de 2003), e com a instituição de Condomínio Urbano Simples nos termos da Lei nº 13.465/17 e do Decreto Federal nº 9.310/18, na forma de condomínio edilício ou por unidades autônomas, sob a denominação de {{empreendimento.nome}}.",
+      "Que, pretendendo ela Incorporadora alienar frações do descrito terreno, representativas de unidades autônomas de edificações a serem erigidas sobre o mesmo imóvel, promove à incorporação imobiliária de tais edificações, para a ordenação jurídica da Lei nº 4.591, de 16 de dezembro de 1964, e todas as suas regulamentações e alterações posteriores, e do art. 1.331 e seguintes, da Lei nº 10.406 (Código Civil), de 10 de janeiro de 2002 (com vigência a partir de 11 de janeiro de 2003), e com a instituição de Condomínio Urbano Simples nos termos da Lei nº 13.465/17 e do Decreto Federal nº 9.310/18, na forma de condomínio edilício ou por unidades autônomas, sob a denominação de {{empreendimento.nome}}.",
   },
   {
     id: "c4",
-    titulo: "Quarta – Da Composição do Condomínio",
+    ordem: 3,
+    titulo: "Terceira – Da Composição do Condomínio",
     categoria: "Composição do Condomínio",
     resumo: "Define áreas global, privativa, comum, torres, pavimentos e unidades.",
     status: "Publicada",
@@ -549,7 +561,8 @@ export const clausulas: Clausula[] = [
   },
   {
     id: "c5",
-    titulo: "Quinta – Da Aprovação do Projeto Arquitetônico",
+    ordem: 4,
+    titulo: "Quarta – Da Aprovação do Projeto Arquitetônico",
     categoria: "Aprovação de Projeto",
     resumo: "Cita alvará municipal, data, responsável técnico, CREA/CAU e ART/RRT.",
     status: "Publicada",
@@ -572,7 +585,8 @@ export const clausulas: Clausula[] = [
   },
   {
     id: "c6",
-    titulo: "Sexta – Da Descrição das Unidades Autônomas",
+    ordem: 5,
+    titulo: "Quinta – Da Descrição das Unidades Autônomas",
     categoria: "Unidades Autônomas",
     resumo:
       "Descrição completa das unidades autônomas por torre, pavimento, apartamento, metragem e fração ideal.",
@@ -582,7 +596,29 @@ export const clausulas: Clausula[] = [
       "Conforme os documentos identificados na Cláusula anterior e os Quadros de Informações para Arquivo no Registro de Imóveis em anexo, que ficam fazendo parte integrante deste Instrumento, estes últimos de acordo com a Norma Brasileira nº 12.721/2006, da Associação Brasileira de Normas Técnicas – ABNT e com a mencionada Lei nº 4.591, assim se descrevem as futuras unidades autônomas do condomínio:\n\n{{listaUnidades}}",
   },
   {
+    id: "c6b",
+    ordem: 6,
+    titulo: "Sexta – Do Orçamento da Edificação",
+    categoria: "Orçamento",
+    resumo: "Declara o custo global estimado da edificação com base no CUB de referência.",
+    status: "Publicada",
+    variaveis: [
+      "orcamento.valor",
+      "orcamento.valorExtenso",
+      "orcamento.cubMultiplicador",
+      "orcamento.cubMultiplicadorExtenso",
+      "orcamento.cubValor",
+      "orcamento.cubValorExtenso",
+      "orcamento.mesReferencia",
+      "orcamento.anoReferencia",
+      "orcamento.regiaoCub",
+    ],
+    template:
+      "O custo global estimado da edificação, para fins do presente memorial de incorporação, é de {{orcamento.valor}} ({{orcamento.valorExtenso}}), correspondente a {{orcamento.cubMultiplicador}} ({{orcamento.cubMultiplicadorExtenso}}) vezes o CUB (Custo Unitário Básico) de {{orcamento.cubValor}} ({{orcamento.cubValorExtenso}}), referente ao mês de {{orcamento.mesReferencia}}/{{orcamento.anoReferencia}}, divulgado pelo Sinduscon {{orcamento.regiaoCub}}.",
+  },
+  {
     id: "c7",
+    ordem: 7,
     titulo: "Sétima – Da Destinação das Unidades Autônomas",
     categoria: "Unidades Autônomas",
     resumo: "Remete a destinação à Convenção Condominial e Regimento Interno.",
@@ -593,6 +629,7 @@ export const clausulas: Clausula[] = [
   },
   {
     id: "c8",
+    ordem: 8,
     titulo: "Oitava – Convenção Condominial e Regimento Interno",
     categoria: "Convenção Condominial",
     resumo: "Convenção e Regimento completos: 7 capítulos e 32 artigos.",
@@ -678,6 +715,7 @@ Artigo 32. Fica eleito o foro da Comarca de Cascavel-PR para todo tipo de ação
   },
   {
     id: "c9",
+    ordem: 9,
     titulo: "Nona – Do Regime de Incorporação",
     categoria: "Incorporação",
     resumo: "Define a incorporação em etapas com base na Lei 4.864/65 e Lei 4.591/64.",
@@ -688,6 +726,7 @@ Artigo 32. Fica eleito o foro da Comarca de Cascavel-PR para todo tipo de ação
   },
   {
     id: "c10",
+    ordem: 10,
     titulo: "Décima – Do Prazo de Carência",
     categoria: "Incorporação",
     resumo:
@@ -699,6 +738,7 @@ Artigo 32. Fica eleito o foro da Comarca de Cascavel-PR para todo tipo de ação
   },
   {
     id: "c11",
+    ordem: 11,
     titulo: "Décima Primeira – Da Regularidade Fiscal",
     categoria: "Incorporação",
     resumo: "Declaração de regularidade fiscal e previdenciária da incorporadora.",
@@ -709,6 +749,7 @@ Artigo 32. Fica eleito o foro da Comarca de Cascavel-PR para todo tipo de ação
   },
   {
     id: "c12",
+    ordem: 12,
     titulo: "Décima Segunda – Do Registro",
     categoria: "Registro",
     resumo: "Solicita registro da incorporação e da Convenção (em resumo) ao Cartório.",

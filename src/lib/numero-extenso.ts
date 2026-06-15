@@ -120,6 +120,22 @@ export function stripLoteQuadraPrefix(value: string): string {
     .trim();
 }
 
+/** Extrai o valor numérico de uma matrícula (ex.: "76.476" → 76476). */
+export function parseMatriculaNumero(value: string): number | null {
+  const digits = value.replace(/\D/g, "");
+  if (!digits) return null;
+  const num = parseInt(digits, 10);
+  return Number.isFinite(num) && num >= 0 ? num : null;
+}
+
+/** Matrícula por extenso (ex.: "76.476" → "setenta e seis mil, quatrocentos e setenta e seis"). */
+export function matriculaPorExtenso(value: string): string {
+  const num = parseMatriculaNumero(value);
+  if (num === null) return "";
+  if (num === 0) return "zero";
+  return integerPartPorExtenso(num);
+}
+
 /** Gera por extenso para lote/quadra (ex.: "12-A" → "doze A", "0503" → "quinhentos e três"). */
 export function loteQuadraPorExtenso(value: string): string {
   const trimmed = stripLoteQuadraPrefix(value);

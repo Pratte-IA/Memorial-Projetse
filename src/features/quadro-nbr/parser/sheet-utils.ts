@@ -214,8 +214,13 @@ export function cellMatchesItemNumber(text: string, itemNumber: string): boolean
   }
 
   const escaped = escapeRegExp(itemNumber);
-  const pattern = new RegExp(`(?:^|\\s)${escaped}(?:\\s|\\.|$|-)`, "i");
-  return pattern.test(trimmed);
+  const pattern = new RegExp(`(?:^|\\s)${escaped}(?=\\s|(?:\\.(?!\\d))|$|-)`, "i");
+  if (!pattern.test(trimmed)) return false;
+
+  // Valores numéricos isolados (ex.: "4.2" m²) não são rótulos de item NBR.
+  if (/^\d+([.,]\d+)?$/.test(trimmed)) return false;
+
+  return true;
 }
 
 function isPercentOnlyCell(value: string): boolean {
@@ -223,8 +228,11 @@ function isPercentOnlyCell(value: string): boolean {
   return /^%?$/.test(cleaned) || /^\d+([.,]\d+)?%$/.test(cleaned);
 }
 
+/** Rótulo numerado NBR (ex.: 3.8.1) — não quantidades inteiras como 7 ou 160. */
 function isItemNumberCell(value: string): boolean {
-  return /^\d+(\.\d+)*\.?\s*$/i.test(value.trim());
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  return /^\d+\.\d+/.test(trimmed);
 }
 
 function isBareCurrencyMarker(value: string): boolean {
@@ -278,6 +286,7 @@ function extractLastMoneyInRow(row: CellMatrix[number]): { valor: string; col: n
     const val = cellStr(row[k]);
     if (!val || isPercentOnlyCell(val) || isItemNumberCell(val)) continue;
     if (isCurrencyUnitLabel(val)) continue;
+    if (isInlineFieldLabel(val)) continue;
     if (cellNum(val) !== null) return { valor: val, col: k };
   }
 
@@ -304,6 +313,7 @@ function extractValueFromNumberedRow(
     const val = cellStr(row[k]);
     if (!val || isPercentOnlyCell(val) || isItemNumberCell(val)) continue;
     if (isCurrencyUnitLabel(val)) continue;
+    if (isInlineFieldLabel(val)) continue;
 
     const money = readMoneyAt(row, k);
     if (money) {
@@ -325,7 +335,8 @@ function extractValueFromNumberedRow(
     if (
       val.length > 1 &&
       !/^\/\s*m2?$/i.test(val) &&
-      !isQuadroHeaderLikeValue(val)
+      !isQuadroHeaderLikeValue(val) &&
+      !isInlineFieldLabel(val)
     ) {
       textCandidates.push({ valor: val, col: k });
     }
@@ -392,6 +403,24 @@ export function isQuadroHeaderLikeValue(value: string): boolean {
   return LABEL_HEADER_PATTERN.test(text);
 }
 
+/** Texto que é rótulo de campo na planilha NBR, não o valor preenchido. */
+export function isInlineFieldLabel(value: string): boolean {
+  const text = value.trim();
+  if (!text) return true;
+  if (text.endsWith(":")) return true;
+  if (/^(cep|cnpj|cpf|rg|art|cau|c\.e\.p)\s*:?\s*$/i.test(text)) return true;
+  if (/^número de registro profissional/i.test(text)) return true;
+  if (/^registro (no|profissional)/i.test(text)) return true;
+  if (
+    /^(nome|cnpj|cep|endereço|logradouro|município|profissional responsável|incorporador|anotação de responsabilidade)\b/i.test(
+      text,
+    )
+  ) {
+    return true;
+  }
+  return false;
+}
+
 /** Valor textual na mesma linha do rótulo (ex.: classificação geral → coluna 5). */
 export function findSameRowValue(
   row: CellMatrix[number],
@@ -409,6 +438,7 @@ export function findSameRowValue(
     const val = cellStr(row[k]);
     if (!val || isQuadroHeaderLikeValue(val) || isPercentOnlyCell(val)) continue;
     if (isItemNumberCell(val)) continue;
+    if (isInlineFieldLabel(val)) continue;
     return { valor: val, col: k };
   }
 
@@ -447,7 +477,7 @@ export function findLabelValue(
       for (let k = c + 1; k < row.length; k++) {
         const candidate = cellStr(row[k]);
         if (!candidate || isItemNumberCell(candidate)) continue;
-        if (candidate.endsWith(":")) continue;
+        if (isInlineFieldLabel(candidate)) continue;
         if (isQuadroHeaderLikeValue(candidate)) continue;
         if (isCurrencyUnitLabel(candidate)) continue;
 

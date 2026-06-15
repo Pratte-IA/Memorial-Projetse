@@ -16,7 +16,7 @@ import {
 } from "@/features/unidades/utils/texto-unidade";
 import { CheckCircle2, FileText, Loader2, RefreshCw, Save, Sparkles } from "lucide-react";
 
-import { isUnidadesSection } from "../status";
+import { isUnidadesSection, formatSecaoSumarioNumero } from "../status";
 import type { SecaoRecord } from "../types";
 import {
   useEnsureMemorial,
@@ -229,8 +229,8 @@ export function MemorialTab({ empreendimentoId, empreendimentoNome }: MemorialTa
           </div>
           <span className="text-[10px] text-muted-foreground">v{memorial.versao}</span>
         </div>
-        <nav className="space-y-0.5">
-          {secoes.map((s: SecaoRecord, i: number) => (
+        <nav className="space-y-0.5 max-h-[calc(100vh-14rem)] overflow-y-auto pr-1">
+          {secoes.map((s: SecaoRecord) => (
             <button
               key={s.id}
               type="button"
@@ -242,7 +242,7 @@ export function MemorialTab({ empreendimentoId, empreendimentoNome }: MemorialTa
               }`}
             >
               <span className="text-[11px] text-mono-tabular text-muted-foreground/70 pt-0.5 w-5 shrink-0">
-                {String(i + 1).padStart(2, "0")}
+                {formatSecaoSumarioNumero(s.ordem)}
               </span>
               <span className="flex-1 leading-tight">{s.titulo}</span>
               <SectionDot status={s.status} />

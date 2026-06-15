@@ -7,12 +7,14 @@ import {
   parseBrNumeric,
   ufPorExtenso,
 } from "@/lib/format";
-import { areaMetrosQuadradosPorExtenso } from "@/lib/numero-extenso";
+import { areaMetrosQuadradosPorExtenso, matriculaPorExtenso } from "@/lib/numero-extenso";
 import type { EmpreendimentoStatus } from "@/lib/mock-data";
 
 import { getEmpreendimentoStatusLabel } from "./status";
 import type { EmpreendimentoListItem, EmpreendimentoView } from "./types";
 import type {
+  CondominioEspacoComumView,
+  CondominioPavimentoView,
   IncorporadoraForm,
   ImovelView,
   PendenciaVisao,
@@ -89,6 +91,21 @@ type PendenciaRowEmbed = {
   status: string;
 };
 
+type CondominioPavimentoRowEmbed = {
+  id: number;
+  torre: string | null;
+  nome: string;
+  area_real: number | null;
+  area_equivalente: number | null;
+  ordem: number;
+};
+
+type CondominioEspacoComumRowEmbed = {
+  id: number;
+  nome: string;
+  ordem: number;
+};
+
 export type EmpreendimentoRowWithJoins = {
   id: number;
   nome: string;
@@ -114,6 +131,8 @@ export type EmpreendimentoDetailRowWithJoins = Omit<
   incorporadoras: IncorporadoraDetailEmbed;
   imoveis: ImovelRowEmbed | ImovelRowEmbed[] | null;
   pendencias: PendenciaRowEmbed[] | null;
+  condominio_pavimentos: CondominioPavimentoRowEmbed[] | null;
+  condominio_espacos_comuns: CondominioEspacoComumRowEmbed[] | null;
 };
 
 function emptyOrDash(value: string | null | undefined): string {
@@ -239,6 +258,10 @@ function mapImovel(
   const estadoExtensoCalculado =
     imovel?.estado_extenso?.trim() || ufPorExtenso(ufBase) || "";
 
+  const matriculaNumeroBase = imovel?.matricula_numero ?? row.matricula ?? "";
+  const matriculaExtensoCalculado =
+    imovel?.matricula_extenso?.trim() || matriculaPorExtenso(matriculaNumeroBase);
+
   if (!imovel) {
     return {
       loteNumero: emptyOrDash(loteQuadraBase.lote),
@@ -253,8 +276,8 @@ function mapImovel(
       areaNumero: areaTerreno > 0 ? fmtNum(areaTerreno, 2) : "—",
       areaExtenso: emptyOrDash(areaExtensoCalculado),
       benfeitorias: "—",
-      matriculaNumero: emptyOrDash(row.matricula),
-      matriculaExtenso: "—",
+      matriculaNumero: emptyOrDash(matriculaNumeroBase),
+      matriculaExtenso: emptyOrDash(matriculaExtensoCalculado),
       cartorio: "—",
       confrontacoes: [],
     };
@@ -289,8 +312,8 @@ function mapImovel(
     areaNumero,
     areaExtenso: emptyOrDash(areaExtensoCalculado),
     benfeitorias: emptyOrDash(imovel.benfeitorias),
-    matriculaNumero: emptyOrDash(imovel.matricula_numero ?? row.matricula),
-    matriculaExtenso: emptyOrDash(imovel.matricula_extenso),
+    matriculaNumero: emptyOrDash(matriculaNumeroBase),
+    matriculaExtenso: emptyOrDash(matriculaExtensoCalculado),
     cartorio: emptyOrDash(imovel.cartorio),
     confrontacoes,
   };
@@ -383,8 +406,38 @@ export function mapRowToView(row: EmpreendimentoDetailRowWithJoins): Empreendime
     imovel: mapImovel(row, areaTerreno),
     areaPrivativaTotal: Number(dt?.area_privativa_total ?? 0),
     areaComumTotal: Number(dt?.area_comum_total ?? 0),
+    pavimentosAreas: mapCondominioPavimentosEmbed(row.condominio_pavimentos),
+    espacosComuns: mapCondominioEspacosComunsEmbed(row.condominio_espacos_comuns),
     pendenciasAbertas: mapPendenciasAbertas(row.pendencias),
   };
+}
+
+export function mapCondominioPavimentosEmbed(
+  rows: CondominioPavimentoRowEmbed[] | null | undefined,
+): CondominioPavimentoView[] {
+  return (rows ?? [])
+    .slice()
+    .sort((a, b) => a.ordem - b.ordem)
+    .map((row) => ({
+      id: row.id,
+      torre: row.torre?.trim() || null,
+      nome: row.nome,
+      areaReal: Number(row.area_real ?? 0),
+      areaEquivalente:
+        row.area_equivalente != null ? Number(row.area_equivalente) : null,
+    }));
+}
+
+export function mapCondominioEspacosComunsEmbed(
+  rows: CondominioEspacoComumRowEmbed[] | null | undefined,
+): CondominioEspacoComumView[] {
+  return (rows ?? [])
+    .slice()
+    .sort((a, b) => a.ordem - b.ordem)
+    .map((row) => ({
+      id: row.id,
+      nome: row.nome,
+    }));
 }
 
 export { parseBrNumeric } from "@/lib/format";

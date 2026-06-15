@@ -1,5 +1,15 @@
+import { extractVaga } from "@/features/quadro-nbr/extract-vaga";
+
 import { getUnidadeStatusLabel } from "./status";
 import type { UnidadeDbStatus, UnidadeRecord, UnidadesResumo } from "./types";
+
+function resolveVaga(vaga: string | null, observacoes: string | null): string {
+  const direta = vaga?.trim();
+  if (direta) return direta;
+
+  const extraida = extractVaga(observacoes ?? "");
+  return extraida || "—";
+}
 
 type UnidadeRow = {
   id: number;
@@ -32,7 +42,7 @@ export function mapRowToUnidade(row: UnidadeRow): UnidadeRecord {
     areaComum: Number(row.area_comum ?? 0),
     areaTotal: Number(row.area_total ?? 0),
     garden: Number(row.area_garden ?? 0),
-    vaga: row.vaga ?? "—",
+    vaga: resolveVaga(row.vaga, row.observacoes),
     fracao: row.fracao ?? "—",
     status,
     statusLabel: getUnidadeStatusLabel(status),

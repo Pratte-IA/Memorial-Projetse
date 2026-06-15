@@ -19,6 +19,8 @@ import { useAuth } from "@/features/auth/use-auth";
 import { useCreateEmpreendimentoFromNbr } from "@/features/empreendimentos/hooks";
 
 import { ACCEPTED_QUADRO_EXTENSIONS, QUADROS_WIZARD_STEPS } from "../constants";
+import type { ArquivoQuadroImportado } from "@/features/empreendimentos/types";
+import { resolveQuadroContentType } from "@/features/quadros-tecnicos/mime";
 import { parseQuadroNbrFile } from "../parser";
 import { updateQuadroInDocumento } from "../mapper";
 import { validarCruzamento, validarQuadroAtual } from "../validation";
@@ -28,6 +30,7 @@ import { QuadroCamposStep } from "./quadro-campos-step";
 import { QuadroTabelaStep } from "./quadro-tabela-step";
 import { RevisaoStep } from "./revisao-step";
 import { QuadroAusenteStep } from "./quadro-ausente-step";
+import { getWizardStepDescricao, getWizardStepTitulo } from "../quadro-iv";
 
 const TABULAR_IDS = new Set<QuadroId>([
   "qi",
@@ -49,7 +52,7 @@ export function NovoEmpreendimentoWizard() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [stepIdx, setStepIdx] = useState(0);
-  const [arquivo, setArquivo] = useState<File | null>(null);
+  const [arquivo, setArquivo] = useState<ArquivoQuadroImportado | null>(null);
   const [processando, setProcessando] = useState(false);
   const [documento, setDocumento] = useState<DocumentoNbrExtraido | null>(null);
 
@@ -75,11 +78,21 @@ export function NovoEmpreendimentoWizard() {
       return;
     }
 
-    setArquivo(file);
     setProcessando(true);
 
     try {
-      const parsed = await parseQuadroNbrFile(file);
+      const buffer = await file.arrayBuffer();
+      const importado: ArquivoQuadroImportado = {
+        name: file.name,
+        type: resolveQuadroContentType(file.name, file.type),
+        size: file.size,
+        buffer,
+      };
+      setArquivo(importado);
+
+      const parsed = await parseQuadroNbrFile(
+        new File([buffer], importado.name, { type: importado.type }),
+      );
       setDocumento(parsed);
       setStepIdx(1);
       toast.success("Quadro processado", {
@@ -130,14 +143,19 @@ export function NovoEmpreendimentoWizard() {
   };
 
   const finalizar = async () => {
-    if (!documento || !membership || !profile) {
-      toast.error("Sessão inválida", { description: "Faça login novamente para continuar." });
+    if (!documento || !arquivo || !membership || !profile) {
+      toast.error("Sessão inválida", {
+        description: arquivo
+          ? "Faça login novamente para continuar."
+          : "Volte ao passo inicial e envie o arquivo CFMD novamente.",
+      });
       return;
     }
 
     try {
       const id = await createMutation.mutateAsync({
         documento,
+        arquivo,
         organizationId: membership.organization_id,
         profileId: profile.id,
       });
@@ -145,9 +163,19 @@ export function NovoEmpreendimentoWizard() {
         description: "Dados dos quadros NBR validados e gravados.",
       });
       navigate({ to: "/empreendimentos/$id", params: { id: String(id) } });
-    } catch {
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === "object" &&
+              error !== null &&
+              "message" in error &&
+              typeof error.message === "string"
+            ? error.message
+            : "Não foi possível salvar os dados. Tente novamente.";
+
       toast.error("Erro ao criar empreendimento", {
-        description: "Não foi possível salvar os dados. Tente novamente.",
+        description: message,
       });
     }
   };
@@ -170,6 +198,9 @@ export function NovoEmpreendimentoWizard() {
 
     return [...base, ...cruzamento];
   })();
+
+  const stepTitulo = getWizardStepTitulo(step.id, documento, step.titulo);
+  const stepDescricao = getWizardStepDescricao(step.id, documento, step.descricao);
 
   const renderStepContent = () => {
     if (step.id === "upload") {
@@ -237,8 +268,9 @@ export function NovoEmpreendimentoWizard() {
       return (
         <QuadroAusenteStep
           quadroId={step.id as QuadroId}
-          tituloStep={step.titulo}
+          tituloStep={stepTitulo}
           nomeArquivo={documento.nomeArquivo}
+          documento={documento}
         />
       );
     }
@@ -285,7 +317,7 @@ export function NovoEmpreendimentoWizard() {
                 variant={i === stepIdx ? "default" : i < stepIdx ? "secondary" : "outline"}
                 role={podeNavegar ? "button" : undefined}
                 tabIndex={podeNavegar ? 0 : undefined}
-                title={podeNavegar ? `Ir para: ${s.titulo}` : undefined}
+                title={podeNavegar ? `Ir para: ${getWizardStepTitulo(s.id, documento, s.titulo)}` : undefined}
                 className={cn(
                   "rounded-full text-[10px]",
                   podeNavegar && "cursor-pointer hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
@@ -301,7 +333,7 @@ export function NovoEmpreendimentoWizard() {
                 }}
               >
                 {i < stepIdx && <CheckCircle2 className="h-3 w-3 mr-1" />}
-                {i + 1}. {s.titulo}
+                {i + 1}. {getWizardStepTitulo(s.id, documento, s.titulo)}
               </Badge>
               {i < QUADROS_WIZARD_STEPS.length - 1 && (
                 <span className="text-muted-foreground text-xs">›</span>
@@ -312,7 +344,7 @@ export function NovoEmpreendimentoWizard() {
         </div>
 
         {step.id !== "upload" && (
-          <p className="text-xs text-muted-foreground">{step.descricao}</p>
+          <p className="text-xs text-muted-foreground">{stepDescricao}</p>
         )}
 
         {renderStepContent()}

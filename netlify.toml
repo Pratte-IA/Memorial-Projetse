@@ -1,0 +1,11 @@
+[build]
+  command = "bun run build"
+  publish = "dist/client"
+
+[functions]
+  directory = ".netlify/functions-internal/server"
+  node_bundler = "none"
+
+[dev]
+  command = "bun run dev"
+  port = 3000

@@ -6,7 +6,7 @@ import { QuadroStepLayout } from "./quadro-step-layout";
 interface PreliminaresStepProps {
   quadro: QuadroPreliminares;
   alertas: import("../types").AlertaValidacao[];
-  onChange: (quadro: QuadroPreliminares) => void;
+  onChange?: (quadro: QuadroPreliminares) => void;
 }
 
 function updateCampo(quadro: QuadroPreliminares, chave: string, valor: string): QuadroPreliminares {
@@ -26,7 +26,11 @@ export function PreliminaresStep({ quadro, alertas, onChange }: PreliminaresStep
   return (
     <QuadroStepLayout
       titulo={quadro.titulo}
-      descricao="Valide os campos hierárquicos da aba Informações Preliminares."
+      descricao={
+        onChange
+          ? "Valide os campos hierárquicos da aba Informações Preliminares."
+          : "Campos validados na importação do quadro CFMD."
+      }
       alertas={alertas}
     >
       {secoes.map((secao) => {
@@ -44,7 +48,13 @@ export function PreliminaresStep({ quadro, alertas, onChange }: PreliminaresStep
                   <Label className="text-xs text-muted-foreground mb-1 block">{campo.rotulo}</Label>
                   <Input
                     value={campo.valor}
-                    onChange={(e) => onChange(updateCampo(quadro, campo.chave, e.target.value))}
+                    readOnly={!onChange}
+                    className={!onChange ? "bg-muted/30" : undefined}
+                    onChange={
+                      onChange
+                        ? (e) => onChange(updateCampo(quadro, campo.chave, e.target.value))
+                        : undefined
+                    }
                   />
                 </div>
               ))}

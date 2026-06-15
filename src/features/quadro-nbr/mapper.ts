@@ -1,7 +1,8 @@
 import type { CreateEmpreendimentoInput } from "@/features/empreendimentos/types";
 import { fmtArea, parseBrNumeric, parseLoteQuadra } from "@/lib/format";
 
-import type { DocumentoNbrExtraido, QuadroExtraido } from "./types";
+import { buildQivbVagaLookup, buildUnidadeVagaLookupKeys, extractVaga, lookupVagaInfo, normalizeDesignacao } from "./extract-vaga";
+import type { ConfrontacaoLabels, DocumentoNbrExtraido, QuadroExtraido } from "./types";
 import { getQuadroById } from "./parser";
 
 function getCampoValor(documento: DocumentoNbrExtraido, chave: string): string {
@@ -18,11 +19,33 @@ function parseIntFromText(raw: string): number {
   return match ? Number(match[0]) : 0;
 }
 
-/** Extrai quantidade de vagas — soma todos os números quando há mais de um no texto. */
+/** Extrai quantidade de vagas de um valor preliminar (ex.: "7", "160"). */
 function parseVagasFromValor(raw: string): number {
-  const numbers = [...raw.matchAll(/\d+/g)].map((m) => Number(m[0])).filter((n) => n > 0);
+  const trimmed = raw.trim();
+  if (!trimmed) return 0;
+  if (/^\d+$/.test(trimmed)) return Number(trimmed);
+  if (!/\d/.test(trimmed)) return 0;
+  const numbers = [...trimmed.matchAll(/\d+/g)].map((m) => Number(m[0])).filter((n) => n > 0);
   if (!numbers.length) return 0;
   return numbers.reduce((sum, n) => sum + n, 0);
+}
+
+/** Total de vagas 3.8.x — soma campos preliminares e fallback por chaves conhecidas. */
+function computeTotalVagas(documento: DocumentoNbrExtraido): number {
+  const fromCampos = sumVagasSecao38(documento.preliminares.campos);
+  if (fromCampos > 0) return fromCampos;
+
+  let total = 0;
+  for (const chave of [
+    "projeto_vagas_ua",
+    "projeto_vagas_38_2",
+    "projeto_vagas_38_3",
+    "projeto_vagas_38_4",
+  ]) {
+    const raw = getCampoValor(documento, chave).trim();
+    if (/^\d+$/.test(raw)) total += Number(raw);
+  }
+  return total;
 }
 
 /** Soma vagas dos subitens 3.8.x das informações preliminares. */
@@ -79,22 +102,47 @@ function inferTipo(designacao: string): string {
   return "Unidade";
 }
 
-function extractVaga(observacoes: string): string {
-  const match = observacoes.match(/vaga\s*n[º°]?\s*([\w-]+)/i);
-  return match ? match[1] : "";
+function resolveVagaQuadro(
+  vagaLookup: ReturnType<typeof buildQivbVagaLookup>,
+  nome: string,
+  observacoesFallback: string | null,
+  torre?: string | null,
+): { vaga: string | null; observacoes: string | null } {
+  const fromQuadro = lookupVagaInfo(vagaLookup, nome, torre);
+  if (fromQuadro) {
+    return {
+      vaga: fromQuadro.vaga || extractVaga(fromQuadro.observacoes) || null,
+      observacoes: fromQuadro.observacoes || observacoesFallback,
+    };
+  }
+
+  const observacoes = observacoesFallback?.trim() || null;
+  return {
+    vaga: observacoes ? extractVaga(observacoes) || null : null,
+    observacoes,
+  };
 }
 
-function formatConfrontacoes(linha: {
-  confrontacaoNorte: string;
-  confrontacaoSul: string;
-  confrontacaoLeste: string;
-  confrontacaoOeste: string;
-}): string {
+function formatConfrontacoes(
+  linha: {
+    confrontacaoNorte: string;
+    confrontacaoSul: string;
+    confrontacaoLeste: string;
+    confrontacaoOeste: string;
+  },
+  labels?: ConfrontacaoLabels,
+): string {
+  const dirs = labels ?? {
+    norte: "Norte",
+    sul: "Sul",
+    leste: "Leste",
+    oeste: "Oeste",
+  };
   const parts = [
-    linha.confrontacaoNorte && `Norte: ${linha.confrontacaoNorte}`,
-    linha.confrontacaoSul && `Sul: ${linha.confrontacaoSul}`,
-    linha.confrontacaoLeste && `Leste: ${linha.confrontacaoLeste}`,
-    linha.confrontacaoOeste && `Oeste: ${linha.confrontacaoOeste}`,
+    linha.confrontacaoNorte && `${dirs.norte}: ${linha.confrontacaoNorte}`,
+    linha.confrontacaoSul && `${dirs.sul}: ${linha.confrontacaoSul}`,
+    linha.confrontacaoLeste && `${dirs.leste}: ${linha.confrontacaoLeste}`,
+    linha.confrontacaoOeste && `${dirs.oeste}: ${linha.confrontacaoOeste}`,
   ].filter(Boolean);
 
   return parts.join(" | ");
@@ -196,7 +244,7 @@ export function mapDocumentoToWizardInput(
     unidades: {
       total: totalUnidades,
       tipos: [...new Set(unidadesFonte.map((u) => inferTipo(u.designacao)))],
-      vagas: sumVagasSecao38(documento.preliminares.campos),
+      vagas: computeTotalVagas(documento),
     },
     areas: {
       terreno: areaTerrenoNum !== null ? fmtArea(areaTerrenoNum) : "",
@@ -234,10 +282,20 @@ export interface UnidadeInsertPayload {
 export function mapDocumentoToUnidades(documento: DocumentoNbrExtraido): UnidadeInsertPayload[] {
   const resumo = getQuadroById(documento, "resumo");
   const qivb = getQuadroById(documento, "qivb");
+  const vagaLookup = buildQivbVagaLookup(documento);
 
   if (resumo?.linhas.length) {
     return resumo.linhas.map((linha) => {
-      const refQivb = qivb?.linhas.find((u) => u.designacao === linha.designacao);
+      const refQivb = qivb?.linhas.find(
+        (u) => normalizeDesignacao(u.designacao) === normalizeDesignacao(linha.designacao),
+      );
+      const { vaga, observacoes } = resolveVagaQuadro(
+        vagaLookup,
+        linha.designacao,
+        refQivb?.observacoes ?? null,
+        linha.bloco || refQivb?.bloco || null,
+      );
+
       return {
         nome: linha.designacao,
         torre: linha.bloco || "—",
@@ -247,33 +305,47 @@ export function mapDocumentoToUnidades(documento: DocumentoNbrExtraido): Unidade
         areaComum: linha.areaComum,
         areaTotal: linha.areaTotal,
         areaGarden: /garden/i.test(linha.designacao) ? linha.areaPrivativaAcessoria : null,
-        vaga: refQivb ? extractVaga(refQivb.observacoes) || null : null,
+        vaga,
         fracao:
           linha.fracaoTerrenoPercentual !== null
             ? String(linha.fracaoTerrenoPercentual)
             : linha.fracaoPredial !== null
               ? String(linha.fracaoPredial)
               : null,
-        confrontacoes: formatConfrontacoes(linha) || null,
-        observacoes: refQivb?.observacoes || null,
+        confrontacoes: formatConfrontacoes(linha, resumo.confrontacaoLabels) || null,
+        observacoes,
       };
     });
   }
 
-  return (qivb?.linhas ?? []).map((linha) => ({
-    nome: linha.designacao,
-    torre: linha.bloco || "—",
-    pavimento: inferPavimento(linha.designacao),
-    tipo: inferTipo(linha.designacao),
-    areaPrivativa: linha.areaPrivativaPrincipal,
-    areaComum: linha.areaUsoComum,
-    areaTotal: linha.areaRealTotal,
-    areaGarden: /garden/i.test(linha.designacao) ? linha.areaPrivativaAcessoria : null,
-    vaga: extractVaga(linha.observacoes) || null,
-    fracao: linha.coeficienteProporcionalidade !== null ? String(linha.coeficienteProporcionalidade) : null,
-    confrontacoes: null,
-    observacoes: linha.observacoes || null,
-  }));
+  return (qivb?.linhas ?? [])
+    .filter((linha) => !/^vaga\s/i.test(linha.designacao.trim()))
+    .map((linha) => {
+      const { vaga, observacoes } = resolveVagaQuadro(
+        vagaLookup,
+        linha.designacao,
+        linha.observacoes || null,
+        linha.bloco || null,
+      );
+
+      return {
+        nome: linha.designacao,
+        torre: linha.bloco || "—",
+        pavimento: inferPavimento(linha.designacao),
+        tipo: inferTipo(linha.designacao),
+        areaPrivativa: linha.areaPrivativaPrincipal,
+        areaComum: linha.areaUsoComum,
+        areaTotal: linha.areaRealTotal,
+        areaGarden: /garden/i.test(linha.designacao) ? linha.areaPrivativaAcessoria : null,
+        vaga,
+        fracao:
+          linha.coeficienteProporcionalidade !== null
+            ? String(linha.coeficienteProporcionalidade)
+            : null,
+        confrontacoes: null,
+        observacoes,
+      };
+    });
 }
 
 export interface DadoExtraidoInsertPayload {
@@ -284,16 +356,32 @@ export interface DadoExtraidoInsertPayload {
   status: "extraido" | "confirmado";
 }
 
-export function mapDocumentoToDadosExtraidos(documento: DocumentoNbrExtraido): DadoExtraidoInsertPayload[] {
-  const records: DadoExtraidoInsertPayload[] = [];
+function dadoExtraidoKey(bloco: string, campo: string): string {
+  return `${bloco}:${campo}`;
+}
+
+function upsertDadoExtraido(
+  index: Map<string, DadoExtraidoInsertPayload>,
+  record: DadoExtraidoInsertPayload,
+): void {
+  index.set(dadoExtraidoKey(record.bloco, record.campo), record);
+}
+
+export function mapDocumentoToDadosExtraidos(
+  documento: DocumentoNbrExtraido,
+  options?: { validadoNoWizard?: boolean },
+): DadoExtraidoInsertPayload[] {
+  const index = new Map<string, DadoExtraidoInsertPayload>();
+  const statusCampo = options?.validadoNoWizard ? ("confirmado" as const) : ("extraido" as const);
+  const statusPreliminares = "confirmado" as const;
 
   for (const campo of documento.preliminares.campos) {
-    records.push({
+    upsertDadoExtraido(index, {
       bloco: "preliminares",
       campo: campo.chave,
       valor: campo.valor,
       confianca: 95,
-      status: "confirmado",
+      status: statusPreliminares,
     });
   }
 
@@ -303,40 +391,63 @@ export function mapDocumentoToDadosExtraidos(documento: DocumentoNbrExtraido): D
     if ("campos" in quadro && quadro.campos) {
       for (const campo of quadro.campos) {
         if (!campo.valor.trim()) continue;
-        records.push({
+        upsertDadoExtraido(index, {
           bloco: quadro.id,
           campo: campo.chave,
           valor: campo.valor,
           confianca: 92,
-          status: "extraido",
+          status: statusCampo,
         });
       }
     }
 
     if ((quadro.id === "qi" || quadro.id === "qcomp") && "totais" in quadro) {
-      records.push(
-        {
+      const areaRealGlobal =
+        quadro.totais.areaRealGlobal !== null ? String(quadro.totais.areaRealGlobal) : "";
+      if (areaRealGlobal) {
+        upsertDadoExtraido(index, {
           bloco: quadro.id,
           campo: "area_real_global",
-          valor: quadro.totais.areaRealGlobal !== null ? String(quadro.totais.areaRealGlobal) : "",
+          valor: areaRealGlobal,
           confianca: 98,
-          status: "extraido",
-        },
-        {
+          status: statusCampo,
+        });
+      }
+
+      const areaEquivGlobal =
+        quadro.totais.areaEquivalenteGlobal !== null
+          ? String(quadro.totais.areaEquivalenteGlobal)
+          : "";
+      if (areaEquivGlobal) {
+        upsertDadoExtraido(index, {
           bloco: quadro.id,
-          campo: "area_equivalente_global",
-          valor:
-            quadro.totais.areaEquivalenteGlobal !== null
-              ? String(quadro.totais.areaEquivalenteGlobal)
-              : "",
+          campo: "area_equiv_global",
+          valor: areaEquivGlobal,
           confianca: 98,
-          status: "extraido",
-        },
-      );
+          status: statusCampo,
+        });
+      }
+    }
+
+    if (quadro.id === "qivb" && "linhas" in quadro) {
+      for (const linha of quadro.linhas) {
+        const observacoes = linha.observacoes?.trim() ?? "";
+        if (!observacoes) continue;
+
+        for (const key of buildUnidadeVagaLookupKeys(linha.designacao, linha.bloco || undefined)) {
+          upsertDadoExtraido(index, {
+            bloco: "qivb",
+            campo: `observacoes__${key}`,
+            valor: observacoes,
+            confianca: 96,
+            status: statusCampo,
+          });
+        }
+      }
     }
   }
 
-  return records;
+  return [...index.values()];
 }
 
 export function updateQuadroInDocumento(
@@ -355,4 +466,88 @@ export function updateQuadroInDocumento(
         ? (quadroAtualizado as DocumentoNbrExtraido["preliminares"])
         : documento.preliminares,
   };
+}
+
+export interface CondominioPavimentoInsertPayload {
+  torre: string | null;
+  nome: string;
+  areaReal: number | null;
+  areaEquivalente: number | null;
+  ordem: number;
+  fonteQuadro: "qi" | "qcomp";
+}
+
+export interface CondominioEspacoComumInsertPayload {
+  nome: string;
+  ordem: number;
+  fonteQuadro: "qviii";
+}
+
+/** Áreas por pavimento — preferência QCOMP (multi-torre) quando tiver dados úteis; fallback QI. */
+export function mapDocumentoToCondominioPavimentos(
+  documento: DocumentoNbrExtraido,
+): CondominioPavimentoInsertPayload[] {
+  const qcomp = getQuadroById(documento, "qcomp");
+  const qi = getQuadroById(documento, "qi");
+
+  const fonte = quadroTemPavimentosUtil(qcomp)
+    ? qcomp
+    : quadroTemPavimentosUtil(qi)
+      ? qi
+      : qcomp?.linhas.length
+        ? qcomp
+        : qi;
+
+  if (!fonte?.linhas.length) return [];
+
+  return fonte.linhas
+    .filter((linha) => linha.pavimento.trim())
+    .map((linha, ordem) => ({
+      torre: linha.torre?.trim() || null,
+      nome: linha.pavimento.trim(),
+      areaReal: linha.areaPavimentoReal,
+      areaEquivalente: linha.areaPavimentoEquivalente,
+      ordem,
+      fonteQuadro: fonte.id as "qi" | "qcomp",
+    }));
+}
+
+function quadroTemPavimentosUtil(
+  quadro?: Pick<Extract<QuadroExtraido, { id: "qi" | "qcomp" }>, "linhas">,
+): boolean {
+  return (quadro?.linhas ?? []).some(
+    (linha) =>
+      linha.pavimento.trim().length > 0 &&
+      ((linha.areaPavimentoReal != null && linha.areaPavimentoReal > 0) ||
+        (linha.areaPavimentoEquivalente != null && linha.areaPavimentoEquivalente > 0)),
+  );
+}
+
+/** Espaços de uso comum — dependências do Quadro VIII (acabamentos comuns). */
+export function mapDocumentoToEspacosComuns(
+  documento: DocumentoNbrExtraido,
+): CondominioEspacoComumInsertPayload[] {
+  const qviii = getQuadroById(documento, "qviii");
+  if (!qviii?.linhas.length) return [];
+
+  const vistos = new Set<string>();
+  const espacos: CondominioEspacoComumInsertPayload[] = [];
+
+  for (const linha of qviii.linhas) {
+    if (linha.isSecao) continue;
+    const nome = linha.dependencia.trim();
+    if (!nome) continue;
+
+    const chave = nome.toLowerCase();
+    if (vistos.has(chave)) continue;
+    vistos.add(chave);
+
+    espacos.push({
+      nome,
+      ordem: espacos.length,
+      fonteQuadro: "qviii",
+    });
+  }
+
+  return espacos;
 }

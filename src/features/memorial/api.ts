@@ -3,12 +3,15 @@ import { supabase } from "@/lib/supabase/client";
 import type { Json } from "@/lib/supabase/types";
 
 import { fetchMemorialContext } from "./context";
+import { ensureClausulasMemorialPadrao } from "./ensure-clausulas-padrao";
 import { generateSecaoConteudo } from "./engine";
 import { mapRowToMemorial } from "./mappers";
+import {
+  buildMemorialSecoesRows,
+  syncMemorialSecoesWithClausulas,
+} from "./sync-memorial-secoes";
 import { isUnidadesSection } from "./status";
 import type { MemorialRecord, SecaoDbStatus, SecaoRecord } from "./types";
-
-const UNIDADES_TITULO = "Sexta – Da Descrição das Unidades Autônomas";
 
 async function logAudit(
   organizationId: number,
@@ -27,7 +30,59 @@ async function logAudit(
   if (error) throw error;
 }
 
+type MemorialFetchRow = Parameters<typeof mapRowToMemorial>[0] & {
+  empreendimentos: { organization_id: number } | { organization_id: number }[] | null;
+};
+
+function resolveOrganizationId(
+  empreendimentos: MemorialFetchRow["empreendimentos"],
+): number | null {
+  if (!empreendimentos) return null;
+  if (Array.isArray(empreendimentos)) {
+    return empreendimentos[0]?.organization_id ?? null;
+  }
+  return empreendimentos.organization_id;
+}
+
 export async function fetchMemorial(empreendimentoId: number): Promise<MemorialRecord | null> {
+  const { data, error } = await supabase
+    .from("memoriais")
+    .select(
+      `
+      id, empreendimento_id, versao, status,
+      empreendimentos!inner ( organization_id ),
+      memorial_secoes (
+        id, memorial_id, clausula_id, titulo, conteudo, status, ordem, updated_at
+      )
+    `,
+    )
+    .eq("empreendimento_id", empreendimentoId)
+    .order("versao", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+
+  const row = data as MemorialFetchRow;
+  let memorial = mapRowToMemorial(row);
+
+  const organizationId = resolveOrganizationId(row.empreendimentos);
+  if (organizationId !== null) {
+    const clausulasSynced = await ensureClausulasMemorialPadrao(organizationId);
+    const secoesSynced = await syncMemorialSecoesWithClausulas(memorial, organizationId);
+    if (clausulasSynced || secoesSynced) {
+      const refreshed = await fetchMemorialWithoutSync(empreendimentoId);
+      if (refreshed) memorial = refreshed;
+    }
+  }
+
+  return memorial;
+}
+
+async function fetchMemorialWithoutSync(
+  empreendimentoId: number,
+): Promise<MemorialRecord | null> {
   const { data, error } = await supabase
     .from("memoriais")
     .select(
@@ -69,26 +124,7 @@ async function createMemorialFromClausulas(input: {
 
   if (memError) throw memError;
 
-  const secoesInsert = [
-    ...clausulas
-      .filter((c) => c.status === "publicada")
-      .map((c) => ({
-        memorial_id: memorial.id,
-        clausula_id: c.id,
-        titulo: c.titulo,
-        conteudo: null,
-        status: "nao_gerada" as const,
-        ordem: c.ordem,
-      })),
-    {
-      memorial_id: memorial.id,
-      clausula_id: null,
-      titulo: UNIDADES_TITULO,
-      conteudo: null,
-      status: "nao_gerada" as const,
-      ordem: 6,
-    },
-  ];
+  const secoesInsert = buildMemorialSecoesRows(memorial.id, clausulas);
 
   const { error: secError } = await supabase.from("memorial_secoes").insert(secoesInsert);
   if (secError) throw secError;

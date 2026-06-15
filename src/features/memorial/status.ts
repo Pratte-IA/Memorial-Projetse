@@ -39,5 +39,17 @@ export function resolveSecaoStatusLabel(status: string): string {
 }
 
 export function isUnidadesSection(titulo: string): boolean {
-  return titulo.toLowerCase().includes("unidades autônomas");
+  const normalized = titulo
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "");
+  return (
+    normalized.includes("descricao das unidades") ||
+    normalized.includes("descrição das unidades")
+  );
+}
+
+export function formatSecaoSumarioNumero(ordem: number): string {
+  if (ordem <= 0) return "—";
+  return String(ordem).padStart(2, "0");
 }

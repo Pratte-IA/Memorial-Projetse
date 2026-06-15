@@ -4,8 +4,8 @@ import { supabase } from "@/lib/supabase/client";
 import type { Json } from "@/lib/supabase/types";
 
 import { QUADROS_TECNICOS_BUCKET } from "./constants";
+import { persistQuadroFile } from "./persist-quadro";
 import type { QuadroTecnicoRecord, QuadroTecnicoStatus, UploadQuadroInput } from "./types";
-import { buildQuadroStoragePath } from "./utils";
 
 type QuadroRow = {
   id: number;
@@ -69,50 +69,9 @@ export async function fetchLatestQuadroTecnico(
 }
 
 export async function uploadQuadroTecnico(input: UploadQuadroInput): Promise<QuadroTecnicoRecord> {
-  const storagePath = buildQuadroStoragePath(
-    input.organizationId,
-    input.empreendimentoId,
-    input.file.name,
-  );
-
-  const { error: uploadError } = await supabase.storage
-    .from(QUADROS_TECNICOS_BUCKET)
-    .upload(storagePath, input.file, {
-      cacheControl: "3600",
-      upsert: false,
-      contentType: input.file.type || "application/pdf",
-    });
-
-  if (uploadError) throw uploadError;
-
-  const { data, error: insertError } = await supabase
-    .from("quadros_tecnicos")
-    .insert({
-      empreendimento_id: input.empreendimentoId,
-      storage_path: storagePath,
-      file_name: input.file.name,
-      mime_type: input.file.type || "application/pdf",
-      size_bytes: input.file.size,
-      status: "enviado",
-      uploaded_by_profile_id: input.profileId,
-    })
-    .select("*")
-    .single();
-
-  if (insertError) {
-    await supabase.storage.from(QUADROS_TECNICOS_BUCKET).remove([storagePath]);
-    throw insertError;
-  }
-
-  await logAudit(
-    input.organizationId,
-    input.empreendimentoId,
-    "upload",
-    `Quadro técnico "${input.file.name}" enviado.`,
-    { quadro_tecnico_id: data.id, storage_path: storagePath },
-  );
-
-  return mapRow(data as QuadroRow);
+  return persistQuadroFile(input, {
+    auditDescription: `Quadro técnico "${input.file.name}" enviado.`,
+  });
 }
 
 export async function updateQuadroTecnicoStatus(

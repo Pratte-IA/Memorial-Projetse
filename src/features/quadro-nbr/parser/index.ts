@@ -33,6 +33,7 @@ import {
   findRowIndex,
   findSheetName,
   isDataEndRow,
+  isInlineFieldLabel,
   isTorreOuBlocoRow,
   isUnidadeDesignacaoValida,
   readWorkbookFromArrayBuffer,
@@ -45,12 +46,15 @@ import {
   parseLinhaResumoFromRow,
   parseResumoConfrontacaoLabels,
   parseLinhaUnidadeAreaFromRow,
+  buildQivbColumnMap,
+  buildQivb1ColumnMap,
   parseLinhaUnidadeRealFromRow,
   parseQivaLinhaFromRow,
 } from "./row-numerics";
 import { parseLinhaAcabamentoFromRow } from "./acabamentos-utils";
 import { parseQuadroIIICampos } from "./quadro-iii-fields";
 import { parseQuadroVCampos } from "./quadro-v-fields";
+import { detectQivbVariante } from "./qivb-variante";
 
 const PRELIMINARES_LABELS: Array<{ chave: string; rotulo: string; busca: string }> = [
   { chave: "incorporador_nome", rotulo: "1.1 Nome", busca: "1.1" },
@@ -83,7 +87,12 @@ function parsePreliminares(matrix: CellMatrix): QuadroPreliminares {
   const campos: CampoExtraido[] = [];
 
   for (const def of PRELIMINARES_LABELS) {
-    const hit = findPreliminarValue(matrix, def.busca);
+    const hit =
+      def.chave === "rt_crea"
+        ? findPreliminarCreaValue(matrix)
+        : def.chave === "projeto_cep"
+          ? findPreliminarCepValue(matrix)
+          : findPreliminarValue(matrix, def.busca);
     campos.push({
       chave: def.chave,
       rotulo: def.rotulo,
@@ -104,7 +113,8 @@ function parsePreliminares(matrix: CellMatrix): QuadroPreliminares {
   for (const vaga of parseCamposSecao38(matrix)) {
     const idx = campos.findIndex((c) => c.chave === vaga.chave);
     if (idx >= 0) {
-      if (!campos[idx].valor.trim()) campos[idx] = { ...campos[idx], valor: vaga.valor, fonte: vaga.fonte };
+      // Sempre preferir o valor numérico da seção 3.8 (findPreliminarValue pega só a descrição).
+      campos[idx] = { ...campos[idx], valor: vaga.valor, fonte: vaga.fonte ?? campos[idx].fonte };
     } else {
       campos.push(vaga);
     }
@@ -131,14 +141,16 @@ function parseCamposSecao38(matrix: CellMatrix): CampoExtraido[] {
     const hit = findLabelValue(matrix, token);
     if (!hit) continue;
 
-    const numeric = hit.valor.replace(/[^\d]/g, "");
-    if (!numeric || Number(numeric) <= 0) continue;
+    const digitsOnly = hit.valor.replace(/[^\d]/g, "");
+    if (!digitsOnly || Number(digitsOnly) <= 0) continue;
+    const valor =
+      /^\d+$/.test(hit.valor.trim()) ? hit.valor.trim() : digitsOnly;
 
     seenSubs.add(String(sub));
     campos.push({
       chave: sub === 1 ? "projeto_vagas_ua" : `projeto_vagas_38_${sub}`,
       rotulo: token,
-      valor: hit.valor,
+      valor,
       fonte: { sheet: SHEET_PRELIMINARES, row: hit.row, col: hit.col },
     });
   }
@@ -156,14 +168,16 @@ function parseCamposSecao38(matrix: CellMatrix): CampoExtraido[] {
       const hit = findLabelValue(matrix, `3.8.${sub}`);
       if (!hit) continue;
 
-      const numeric = hit.valor.replace(/[^\d]/g, "");
-      if (!numeric || Number(numeric) <= 0) continue;
+      const digitsOnly = hit.valor.replace(/[^\d]/g, "");
+      if (!digitsOnly || Number(digitsOnly) <= 0) continue;
+      const valor =
+        /^\d+$/.test(hit.valor.trim()) ? hit.valor.trim() : digitsOnly;
 
       seenSubs.add(sub);
       campos.push({
         chave: sub === "1" ? "projeto_vagas_ua" : `projeto_vagas_38_${sub}`,
         rotulo: cellText.trim() || `3.8.${sub}`,
-        valor: hit.valor,
+        valor,
         fonte: { sheet: SHEET_PRELIMINARES, row: hit.row, col: hit.col },
       });
     }
@@ -172,11 +186,153 @@ function parseCamposSecao38(matrix: CellMatrix): CampoExtraido[] {
   return campos;
 }
 
+/** Localiza o registro CREA/CAU na aba Informações Preliminares (item 2.2). */
+function findPreliminarCreaValue(
+  matrix: CellMatrix,
+): { valor: string; row: number; col: number } | null {
+  for (const label of [
+    "registro no crea:",
+    "registro profissional no crea:",
+    "crea/cau:",
+    "crea:",
+  ]) {
+    const hit = findLabelValue(matrix, label);
+    if (hit && !isInlineFieldLabel(hit.valor)) return hit;
+  }
+
+  const numbered = findLabelValue(matrix, "2.2");
+  if (numbered && !isInlineFieldLabel(numbered.valor)) return numbered;
+
+  let anchorRow = numbered?.row;
+  let startCol = numbered?.col ?? 0;
+
+  if (anchorRow === undefined) {
+    for (let r = 0; r < matrix.length; r++) {
+      const row = matrix[r] ?? [];
+      for (let c = 0; c < row.length; c++) {
+        const text = cellStr(row[c]);
+        if (!text.includes("2.2")) continue;
+        anchorRow = r;
+        startCol = c;
+        break;
+      }
+      if (anchorRow !== undefined) break;
+    }
+  }
+
+  if (anchorRow === undefined) return null;
+
+  for (let dr = 0; dr <= 2; dr++) {
+    const row = matrix[anchorRow + dr] ?? [];
+    for (let k = dr === 0 ? startCol + 1 : startCol; k < row.length; k++) {
+      const val = cellStr(row[k]);
+      if (!val || isInlineFieldLabel(val)) continue;
+      if (/^\d+(\.\d+)*$/.test(val.trim())) continue;
+      return { valor: val, row: anchorRow + dr, col: k };
+    }
+  }
+
+  return null;
+}
+
+function looksLikeCep(value: string): boolean {
+  return value.replace(/\D/g, "").length === 8;
+}
+
+function formatCep(value: string): string {
+  const digits = value.replace(/\D/g, "");
+  if (digits.length !== 8) return value.trim();
+  return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+}
+
+function scanNearbyPreliminarValue(
+  matrix: CellMatrix,
+  anchorRow: number,
+  startCol: number,
+  validate?: (value: string) => boolean,
+): { valor: string; row: number; col: number } | null {
+  for (let dr = 0; dr <= 2; dr++) {
+    const row = matrix[anchorRow + dr] ?? [];
+    const colStart = dr === 0 ? startCol + 1 : startCol;
+    for (let k = colStart; k < row.length; k++) {
+      const val = cellStr(row[k]);
+      if (!val || isInlineFieldLabel(val)) continue;
+      if (validate && !validate(val)) continue;
+      if (!validate && /^\d+(\.\d+)*$/.test(val.trim())) continue;
+      return { valor: val, row: anchorRow + dr, col: k };
+    }
+  }
+  return null;
+}
+
+/** Localiza o CEP na aba Informações Preliminares (item 3.2.3). */
+function findPreliminarCepValue(
+  matrix: CellMatrix,
+): { valor: string; row: number; col: number } | null {
+  for (const label of ["cep:", "c.e.p:"]) {
+    const hit = findLabelValue(matrix, label);
+    if (hit && !isInlineFieldLabel(hit.valor) && looksLikeCep(hit.valor)) {
+      return { ...hit, valor: formatCep(hit.valor) };
+    }
+  }
+
+  const numbered = findLabelValue(matrix, "3.2.3");
+  if (numbered && !isInlineFieldLabel(numbered.valor) && looksLikeCep(numbered.valor)) {
+    return { ...numbered, valor: formatCep(numbered.valor) };
+  }
+
+  let anchorRow = numbered?.row;
+  let startCol = numbered?.col ?? 0;
+
+  if (anchorRow === undefined) {
+    for (let r = 0; r < matrix.length; r++) {
+      const row = matrix[r] ?? [];
+      for (let c = 0; c < row.length; c++) {
+        const text = cellStr(row[c]);
+        if (!text.includes("3.2.3")) continue;
+        anchorRow = r;
+        startCol = c;
+        break;
+      }
+      if (anchorRow !== undefined) break;
+    }
+  }
+
+  if (anchorRow === undefined) {
+    for (let r = 0; r < matrix.length; r++) {
+      const row = matrix[r] ?? [];
+      for (let c = 0; c < row.length; c++) {
+        if (!/^cep\s*:?\s*$/i.test(cellStr(row[c]))) continue;
+        anchorRow = r;
+        startCol = c;
+        break;
+      }
+      if (anchorRow !== undefined) break;
+    }
+  }
+
+  if (anchorRow === undefined) return null;
+
+  const nearby = scanNearbyPreliminarValue(matrix, anchorRow, startCol, looksLikeCep);
+  if (!nearby) return null;
+  return { ...nearby, valor: formatCep(nearby.valor) };
+}
+
 function findPreliminarValue(
   matrix: CellMatrix,
   token: string,
 ): { valor: string; row: number; col: number } | null {
-  const needle = token.toLowerCase();
+  const trimmedToken = token.trim();
+  if (/^\d+(\.\d+)+$/.test(trimmedToken)) {
+    const numbered = findLabelValue(matrix, trimmedToken);
+    if (numbered) {
+      if (!isInlineFieldLabel(numbered.valor)) return numbered;
+      const nearby = scanNearbyPreliminarValue(matrix, numbered.row, numbered.col);
+      if (nearby) return { ...nearby, valor: normalizeNumericDisplayPtBr(nearby.valor) };
+    }
+  }
+
+  const needle = trimmedToken.toLowerCase();
 
   for (let r = 0; r < matrix.length; r++) {
     const row = matrix[r] ?? [];
@@ -186,10 +342,13 @@ function findPreliminarValue(
 
       for (let k = c + 1; k < row.length; k++) {
         const val = cellStr(row[k]);
-        if (!val || val.endsWith(":")) continue;
+        if (!val || isInlineFieldLabel(val)) continue;
         if (val.toLowerCase().includes(needle.replace(":", ""))) continue;
         return { valor: normalizeNumericDisplayPtBr(val), row: r, col: k };
       }
+
+      const nearby = scanNearbyPreliminarValue(matrix, r, c);
+      if (nearby) return { ...nearby, valor: normalizeNumericDisplayPtBr(nearby.valor) };
     }
   }
 
@@ -434,9 +593,14 @@ function parseQuadroIVA(matrix: CellMatrix): QuadroIVA {
   };
 }
 
-function parseQuadroIVB(matrix: CellMatrix): QuadroIVB {
+function parseQuadroIVB(matrix: CellMatrix, sheetName = ""): QuadroIVB {
   const { folha, totalFolhas } = extractFolhaInfo(matrix);
   const colNumsRow = findRowIndex(matrix, (row) => cellStr(row[0]) === "A");
+  const variante = detectQivbVariante(sheetName, matrix);
+  const columnMap =
+    variante === "b1"
+      ? buildQivb1ColumnMap(matrix, colNumsRow >= 0 ? colNumsRow : undefined)
+      : buildQivbColumnMap(matrix, colNumsRow >= 0 ? colNumsRow : undefined);
 
   const linhas =
     colNumsRow >= 0
@@ -444,13 +608,18 @@ function parseQuadroIVB(matrix: CellMatrix): QuadroIVB {
           const designacao = cellStr(row[0]);
           if (!designacao) return null;
 
-          return parseLinhaUnidadeRealFromRow(row, { designacao, bloco });
+          return parseLinhaUnidadeRealFromRow(row, { designacao, bloco }, columnMap);
         })
       : [];
 
   return {
     id: "qivb",
-    titulo: "Quadro IV B — Áreas Reais para Registro",
+    variante,
+    nomeAba: sheetName || undefined,
+    titulo:
+      variante === "b1"
+        ? "Quadro IV B.1 — Áreas Reais para Registro (terreno exclusivo)"
+        : "Quadro IV B — Áreas Reais para Registro",
     folha,
     totalFolhas,
     cabecalho: parseCabecalhoPadrao(matrix),
@@ -547,7 +716,7 @@ function findResumoDataStart(matrix: CellMatrix, headerRow: number): number {
 
 function isResumoFormatoMadrid(matrix: CellMatrix): boolean {
   return matrix.some((row) =>
-    (row ?? []).some((cell) => /noroeste|sudoeste/i.test(cellStr(cell))),
+    (row ?? []).some((cell) => /noroeste|nordeste|sudoeste|sudeste/i.test(cellStr(cell))),
   );
 }
 
@@ -622,7 +791,7 @@ export async function parseQuadroNbrFile(file: File): Promise<DocumentoNbrExtrai
     qii: (matrix) => parseQuadroII(matrix),
     qiii: (matrix) => parseQuadroIII(matrix),
     qiva: (matrix) => parseQuadroIVA(matrix),
-    qivb: (matrix) => parseQuadroIVB(matrix),
+    qivb: (matrix, sheet) => parseQuadroIVB(matrix, sheet),
     qv: (matrix) => parseQuadroV(matrix),
     qvi: (matrix) => parseQuadroVI(matrix),
     qvii: (matrix) =>
@@ -654,19 +823,20 @@ export async function parseQuadroNbrFile(file: File): Promise<DocumentoNbrExtrai
     const matrix = sheetToMatrix(workbook, sheet);
     const parsed = parserById[quadroId](matrix, sheet);
 
-    if (quadroId === "qivb" && /B[\s.]?1/i.test(sheet)) {
-      parsed.titulo = "Quadro IV B.1 — Áreas Reais para Registro";
-    }
-
     quadros.push(parsed);
     quadrosPresentes.push(quadroId);
   }
+
+  const qivbQuadro = quadros.find((q) => q.id === "qivb");
+  const quadroIvVariante =
+    qivbQuadro && "variante" in qivbQuadro && qivbQuadro.variante === "b1" ? "b1" : "padrao";
 
   return {
     nomeArquivo: file.name,
     quadros,
     preliminares,
     quadrosPresentes,
+    quadroIvVariante,
   };
 }
 

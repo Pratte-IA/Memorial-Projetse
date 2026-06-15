@@ -1,9 +1,13 @@
 import {
+  mapDocumentoToCondominioPavimentos,
   mapDocumentoToDadosExtraidos,
+  mapDocumentoToEspacosComuns,
   mapDocumentoToUnidades,
   mapDocumentoToWizardInput,
   sumVagasSecao38,
 } from "@/features/quadro-nbr/mapper";
+import { persistQuadroFile } from "@/features/quadros-tecnicos/persist-quadro";
+import { fileFromBuffer } from "@/features/quadros-tecnicos/mime";
 import {
   fmtNum,
   normalizeLoteQuadraFields,
@@ -12,7 +16,7 @@ import {
   parseLoteQuadra,
 } from "@/lib/format";
 import { formatDateBr } from "./mappers";
-import { areaMetrosQuadradosPorExtenso } from "@/lib/numero-extenso";
+import { areaMetrosQuadradosPorExtenso, matriculaPorExtenso } from "@/lib/numero-extenso";
 import { supabase } from "@/lib/supabase/client";
 
 import {
@@ -23,9 +27,12 @@ import {
   type EmpreendimentoRowWithJoins,
 } from "./mappers";
 import { DB_EMPREENDIMENTO_STATUS } from "./status";
+import { persistCondominioComposicao } from "./persist-condominio";
+import { backfillCondominioComposicaoFromQuadro } from "./sync-condominio-from-quadro";
 import type {
   CreateEmpreendimentoFromNbrInput,
   CreateEmpreendimentoInput,
+  DeleteEmpreendimentoInput,
   EmpreendimentoListItem,
   EmpreendimentoView,
   UpdateEmpreendimentoInput,
@@ -132,6 +139,19 @@ const EMPREENDIMENTO_DETAIL_SELECT = `
     mensagem,
     severidade,
     status
+  ),
+  condominio_pavimentos (
+    id,
+    torre,
+    nome,
+    area_real,
+    area_equivalente,
+    ordem
+  ),
+  condominio_espacos_comuns (
+    id,
+    nome,
+    ordem
   )
 `;
 
@@ -307,9 +327,18 @@ export async function fetchEmpreendimentoDetail(id: number): Promise<Empreendime
       .eq("empreendimento_id", id)
       .eq("bloco", "preliminares");
 
-    const totalVagas = sumVagasSecao38(
-      (preliminaresDados ?? []).map((d) => ({ campo: d.campo, valor: d.valor ?? "" })),
-    );
+    const preliminaresCampos = (preliminaresDados ?? []).map((d) => ({
+      campo: d.campo,
+      valor: d.valor ?? "",
+    }));
+    let totalVagas = sumVagasSecao38(preliminaresCampos);
+    if (totalVagas <= 0) {
+      totalVagas = preliminaresCampos.reduce((sum, item) => {
+        if (!item.campo?.startsWith("projeto_vagas")) return sum;
+        const v = item.valor.trim();
+        return /^\d+$/.test(v) ? sum + Number(v) : sum;
+      }, 0);
+    }
     if (totalVagas > 0) {
       view.vagas = totalVagas;
       await supabase
@@ -329,6 +358,18 @@ export async function fetchEmpreendimentoDetail(id: number): Promise<Empreendime
 
     const socios = mapSociosFromCampos(sociosDados ?? []);
     if (socios.length > 0) view.representantes = socios;
+  }
+
+  if (view.pavimentosAreas.length === 0) {
+    try {
+      const synced = await backfillCondominioComposicaoFromQuadro(id);
+      if (synced) {
+        view.pavimentosAreas = synced.pavimentos;
+        view.espacosComuns = synced.espacosComuns;
+      }
+    } catch (error) {
+      console.warn("Falha ao sincronizar composição do condomínio a partir do quadro técnico:", error);
+    }
   }
 
   return view;
@@ -421,13 +462,15 @@ export async function createEmpreendimentoFromWizard(
   }
 
   const areaTerreno = parseBrNumeric(input.areas.terreno);
+  const matriculaNumero = input.localizacao.matricula || null;
   const { error: imovelError } = await supabase.from("imoveis").insert({
     empreendimento_id: empreendimento.id,
     lote_numero: loteQuadra.lote || null,
     lote_extenso: loteQuadra.loteExtenso || null,
     quadra_numero: loteQuadra.quadra || null,
     quadra_extenso: loteQuadra.quadraExtenso || null,
-    matricula_numero: input.localizacao.matricula || null,
+    matricula_numero: matriculaNumero,
+    matricula_extenso: matriculaNumero ? matriculaPorExtenso(matriculaNumero) : null,
     cidade: input.localizacao.cidade || null,
     uf: input.localizacao.uf || null,
     area_numero: areaTerreno,
@@ -457,58 +500,105 @@ export async function createEmpreendimentoFromNbr(
 
   const empreendimentoId = await createEmpreendimentoFromWizard(wizardInput);
 
-  const dadosExtraidos = mapDocumentoToDadosExtraidos(input.documento);
-  if (dadosExtraidos.length > 0) {
-    const { error: dadosExtraidosError } = await supabase.from("dados_extraidos").insert(
-      dadosExtraidos.map((d) => ({
-        empreendimento_id: empreendimentoId,
-        bloco: d.bloco,
-        campo: d.campo,
-        valor: d.valor,
-        confianca: d.confianca,
-        status: d.status,
-      })),
+  try {
+    const arquivo = fileFromBuffer(input.arquivo.buffer, input.arquivo.name, input.arquivo.type);
+
+    const quadroRecord = await persistQuadroFile(
+      {
+        file: arquivo,
+        fileBuffer: input.arquivo.buffer,
+        empreendimentoId,
+        organizationId: input.organizationId,
+        profileId: input.profileId,
+      },
+      {
+        status: "processado",
+        processedAt: new Date().toISOString(),
+        allowStorageFailure: true,
+        auditEventType: "importacao_nbr",
+        auditDescription: `Quadro CFMD "${input.arquivo.name}" vinculado na criação do empreendimento.`,
+      },
     );
 
-    if (dadosExtraidosError) throw dadosExtraidosError;
-  }
-
-  const unidades = mapDocumentoToUnidades(input.documento);
-  if (unidades.length > 0) {
-    const BATCH_SIZE = 100;
-    for (let i = 0; i < unidades.length; i += BATCH_SIZE) {
-      const batch = unidades.slice(i, i + BATCH_SIZE);
-      const { error: unidadesError } = await supabase.from("unidades_autonomas").insert(
-        batch.map((u) => ({
+    const dadosExtraidos = mapDocumentoToDadosExtraidos(input.documento, {
+      validadoNoWizard: true,
+    });
+    if (dadosExtraidos.length > 0) {
+      const { error: dadosExtraidosError } = await supabase.from("dados_extraidos").insert(
+        dadosExtraidos.map((d) => ({
           empreendimento_id: empreendimentoId,
-          nome: u.nome,
-          torre: u.torre,
-          pavimento: u.pavimento,
-          tipo: u.tipo,
-          area_privativa: u.areaPrivativa,
-          area_comum: u.areaComum,
-          area_total: u.areaTotal,
-          area_garden: u.areaGarden,
-          vaga: u.vaga,
-          fracao: u.fracao,
-          confrontacoes: u.confrontacoes,
-          observacoes: u.observacoes,
-          status: "nao_revisado",
+          quadro_tecnico_id: quadroRecord.id,
+          bloco: d.bloco,
+          campo: d.campo,
+          valor: d.valor,
+          confianca: d.confianca,
+          status: d.status,
         })),
       );
 
-      if (unidadesError) throw unidadesError;
+      if (dadosExtraidosError) throw dadosExtraidosError;
     }
+
+    const unidades = mapDocumentoToUnidades(input.documento);
+    if (unidades.length > 0) {
+      const BATCH_SIZE = 100;
+      for (let i = 0; i < unidades.length; i += BATCH_SIZE) {
+        const batch = unidades.slice(i, i + BATCH_SIZE);
+        const { error: unidadesError } = await supabase.from("unidades_autonomas").insert(
+          batch.map((u) => ({
+            empreendimento_id: empreendimentoId,
+            nome: u.nome,
+            torre: u.torre,
+            pavimento: u.pavimento,
+            tipo: u.tipo,
+            area_privativa: u.areaPrivativa,
+            area_comum: u.areaComum,
+            area_total: u.areaTotal,
+            area_garden: u.areaGarden,
+            vaga: u.vaga,
+            fracao: u.fracao,
+            confrontacoes: u.confrontacoes,
+            observacoes: u.observacoes,
+            status: "validado",
+          })),
+        );
+
+        if (unidadesError) throw unidadesError;
+      }
+    }
+
+    const pavimentos = mapDocumentoToCondominioPavimentos(input.documento);
+    const espacosComuns = mapDocumentoToEspacosComuns(input.documento);
+    await persistCondominioComposicao(empreendimentoId, pavimentos, espacosComuns);
+
+    await supabase
+      .from("empreendimentos")
+      .update({
+        status: DB_EMPREENDIMENTO_STATUS.pronto_para_gerar,
+        progresso: 55,
+      })
+      .eq("id", empreendimentoId);
+
+    await logAudit(
+      input.organizationId,
+      empreendimentoId,
+      "importacao_nbr",
+      `Importados ${input.documento.quadros.length} quadros NBR, ${unidades.length} unidades, ${pavimentos.length} pavimentos e ${espacosComuns.length} espaços comuns de "${wizardInput.identificacao.nome}".`,
+    );
+
+    return empreendimentoId;
+  } catch (error) {
+    const { error: deleteError } = await supabase
+      .from("empreendimentos")
+      .delete()
+      .eq("id", empreendimentoId);
+
+    if (deleteError) {
+      console.error("Falha ao reverter empreendimento após erro na importação NBR:", deleteError);
+    }
+
+    throw error;
   }
-
-  await logAudit(
-    input.organizationId,
-    empreendimentoId,
-    "importacao_nbr",
-    `Importados ${input.documento.quadros.length} quadros NBR e ${unidades.length} unidades de "${wizardInput.identificacao.nome}".`,
-  );
-
-  return empreendimentoId;
 }
 
 export async function updateEmpreendimentoBasico(input: UpdateEmpreendimentoInput): Promise<void> {
@@ -532,9 +622,15 @@ export async function updateEmpreendimentoBasico(input: UpdateEmpreendimentoInpu
   if (error) throw error;
 
   if (input.matricula !== undefined) {
+    const matriculaNumero = input.matricula.trim();
+    const matriculaExtenso = matriculaNumero ? matriculaPorExtenso(matriculaNumero) : null;
+
     const { error: imovelError } = await supabase
       .from("imoveis")
-      .update({ matricula_numero: input.matricula.trim() || null })
+      .update({
+        matricula_numero: matriculaNumero || null,
+        matricula_extenso: matriculaExtenso || null,
+      })
       .eq("empreendimento_id", input.empreendimentoId);
 
     if (imovelError) throw imovelError;
@@ -546,4 +642,20 @@ export async function updateEmpreendimentoBasico(input: UpdateEmpreendimentoInpu
     "edicao",
     `Empreendimento #${input.empreendimentoId} atualizado.`,
   );
+}
+
+export async function deleteEmpreendimento(input: DeleteEmpreendimentoInput): Promise<void> {
+  await logAudit(
+    input.organizationId,
+    input.empreendimentoId,
+    "exclusao",
+    `Empreendimento "${input.nome}" excluído.`,
+  );
+
+  const { error } = await supabase
+    .from("empreendimentos")
+    .delete()
+    .eq("id", input.empreendimentoId);
+
+  if (error) throw error;
 }
