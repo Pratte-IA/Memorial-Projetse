@@ -12,6 +12,7 @@ import { AlertTriangle, Building2, Download, Hash, Ruler, Sparkles, Users } from
 import { EMPREENDIMENTO_DETAIL_ABAS } from "../constants/detail-mocks";
 import type { EmpreendimentoDetailAba } from "../types/detail-types";
 import { DadosValidadosTab } from "./dados-validados-tab";
+import { UploadQuadroTab } from "./upload-quadro-tab";
 import { Mini } from "./detail-ui";
 import { ExportacoesTab } from "./exportacoes-tab";
 import { HistoricoTab } from "./historico-tab";
@@ -104,6 +105,11 @@ export function EmpreendimentoDetailPage({ emp }: EmpreendimentoDetailPageProps)
       </div>
 
       <div className="p-8">
+        {aba === "upload-quadro" && (
+          <UploadQuadroTab
+            empreendimentoId={/^\d+$/.test(emp.id) ? Number(emp.id) : null}
+          />
+        )}
         {aba === "dados-validados" && (
           <DadosValidadosTab
             empreendimentoId={/^\d+$/.test(emp.id) ? Number(emp.id) : null}

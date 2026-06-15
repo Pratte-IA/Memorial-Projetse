@@ -37,6 +37,44 @@ const DEFAULT_QIVB_COLUMN_MAP: QivbColumnMap = {
   observacoes: 8,
 };
 
+/** Índices das colunas numéricas do Quadro II (após coluna 19 — unidade). */
+export interface QiiColumnMap {
+  areaPrivativaCobertaPadrao: number;
+  areaPrivativaCobertaDiferenteReal: number;
+  areaPrivativaCobertaDiferenteEquivalente: number;
+  areaPrivativaTotalReal: number;
+  areaPrivativaTotalEquivalente: number;
+  areaUsoComumNaoPropCobertaPadrao: number;
+  areaUsoComumNaoPropCobertaDiferenteReal: number;
+  areaUsoComumNaoPropCobertaDiferenteEquivalente: number;
+  areaUsoComumNaoPropTotalReal: number;
+  areaUsoComumNaoPropTotalEquivalente: number;
+  coeficienteProporcionalidade: number;
+  areaUnidadeReal: number;
+  areaUnidadeEquivalente: number;
+  quantidadeIdenticas: number;
+}
+
+const DEFAULT_QII_COLUMN_MAP: QiiColumnMap = {
+  areaPrivativaCobertaPadrao: 1,
+  areaPrivativaCobertaDiferenteReal: 2,
+  areaPrivativaCobertaDiferenteEquivalente: 3,
+  areaPrivativaTotalReal: 4,
+  areaPrivativaTotalEquivalente: 5,
+  areaUsoComumNaoPropCobertaPadrao: 6,
+  areaUsoComumNaoPropCobertaDiferenteReal: 7,
+  areaUsoComumNaoPropCobertaDiferenteEquivalente: 8,
+  areaUsoComumNaoPropTotalReal: 9,
+  areaUsoComumNaoPropTotalEquivalente: 10,
+  coeficienteProporcionalidade: 12,
+  areaUnidadeReal: 18,
+  areaUnidadeEquivalente: 19,
+  quantidadeIdenticas: 20,
+};
+
+const QTD_IDENTICAS_HEADER =
+  /quantidade.*(?:unidades|número).*idênticas|número de unidades idênticas|^quantidade$/i;
+
 const OBSERVACOES_HEADER = /observa[çc][oõeê]s?|observa[çc][aã]o|obs\.?\b/i;
 const OBSERVACOES_VAGA_HINT = /direito\s+de\s+uso|\bvaga\b/i;
 
@@ -120,7 +158,7 @@ export function buildQivbColumnMap(matrix: CellMatrix, letterRowHint?: number): 
 
   let qtdCol = findColumnByHeader(
     matrix,
-    /quantidade.*(?:unidades|número).*idênticas|número de unidades idênticas/i,
+    QTD_IDENTICAS_HEADER,
     afterG,
   );
   let obsCol = findColumnByHeader(
@@ -172,7 +210,7 @@ export function buildQivb1ColumnMap(matrix: CellMatrix, letterRowHint?: number):
 
   let qtdCol = findColumnByHeader(
     matrix,
-    /quantidade.*(?:unidades|número).*idênticas|número de unidades idênticas/i,
+    QTD_IDENTICAS_HEADER,
     afterJ,
   );
   let obsCol = findColumnByHeader(
@@ -201,6 +239,31 @@ export function buildQivb1ColumnMap(matrix: CellMatrix, letterRowHint?: number):
     quantidadeIdenticas: qtdCol >= 0 ? qtdCol : col("K", 10),
     observacoes: obsCol >= 0 ? obsCol : col("L", 11),
   };
+}
+
+/** Localiza a coluna QUANTIDADE (número de unidades idênticas) do Quadro II. */
+export function buildQiiColumnMap(matrix: CellMatrix, headerRowHint?: number): QiiColumnMap {
+  const map = { ...DEFAULT_QII_COLUMN_MAP };
+
+  let qtdCol = findColumnByHeader(matrix, QTD_IDENTICAS_HEADER, 0);
+
+  if (qtdCol < 0 && headerRowHint !== undefined && headerRowHint >= 0) {
+    const headerRow = matrix[headerRowHint] ?? [];
+    for (let c = map.areaUnidadeEquivalente + 1; c < headerRow.length; c++) {
+      const cell = cellStr(headerRow[c]).trim();
+      if (/^39$/.test(cell) || QTD_IDENTICAS_HEADER.test(cell)) {
+        qtdCol = c;
+        break;
+      }
+    }
+  }
+
+  if (qtdCol < 0) {
+    qtdCol = map.areaUnidadeEquivalente + 1;
+  }
+
+  map.quantidadeIdenticas = qtdCol;
+  return map;
 }
 
 export function parseNumericField(
@@ -287,6 +350,7 @@ export function parseLinhaPavimentoFromRow(
 export function parseLinhaUnidadeAreaFromRow(
   row: CellMatrix[number],
   meta: { designacao: string; bloco: string },
+  columnMap: QiiColumnMap = DEFAULT_QII_COLUMN_MAP,
 ): LinhaUnidadeArea {
   const linha: LinhaUnidadeArea = {
     designacao: meta.designacao,
@@ -305,22 +369,36 @@ export function parseLinhaUnidadeAreaFromRow(
     coeficienteProporcionalidade: null,
     areaUnidadeReal: null,
     areaUnidadeEquivalente: null,
+    quantidadeIdenticas: null,
   };
 
   const fields: Array<{ field: keyof LinhaUnidadeArea; col: number }> = [
-    { field: "areaPrivativaCobertaPadrao", col: 1 },
-    { field: "areaPrivativaCobertaDiferenteReal", col: 2 },
-    { field: "areaPrivativaCobertaDiferenteEquivalente", col: 3 },
-    { field: "areaPrivativaTotalReal", col: 4 },
-    { field: "areaPrivativaTotalEquivalente", col: 5 },
-    { field: "areaUsoComumNaoPropCobertaPadrao", col: 6 },
-    { field: "areaUsoComumNaoPropCobertaDiferenteReal", col: 7 },
-    { field: "areaUsoComumNaoPropCobertaDiferenteEquivalente", col: 8 },
-    { field: "areaUsoComumNaoPropTotalReal", col: 9 },
-    { field: "areaUsoComumNaoPropTotalEquivalente", col: 10 },
-    { field: "coeficienteProporcionalidade", col: 12 },
-    { field: "areaUnidadeReal", col: 18 },
-    { field: "areaUnidadeEquivalente", col: 19 },
+    { field: "areaPrivativaCobertaPadrao", col: columnMap.areaPrivativaCobertaPadrao },
+    { field: "areaPrivativaCobertaDiferenteReal", col: columnMap.areaPrivativaCobertaDiferenteReal },
+    {
+      field: "areaPrivativaCobertaDiferenteEquivalente",
+      col: columnMap.areaPrivativaCobertaDiferenteEquivalente,
+    },
+    { field: "areaPrivativaTotalReal", col: columnMap.areaPrivativaTotalReal },
+    { field: "areaPrivativaTotalEquivalente", col: columnMap.areaPrivativaTotalEquivalente },
+    { field: "areaUsoComumNaoPropCobertaPadrao", col: columnMap.areaUsoComumNaoPropCobertaPadrao },
+    {
+      field: "areaUsoComumNaoPropCobertaDiferenteReal",
+      col: columnMap.areaUsoComumNaoPropCobertaDiferenteReal,
+    },
+    {
+      field: "areaUsoComumNaoPropCobertaDiferenteEquivalente",
+      col: columnMap.areaUsoComumNaoPropCobertaDiferenteEquivalente,
+    },
+    { field: "areaUsoComumNaoPropTotalReal", col: columnMap.areaUsoComumNaoPropTotalReal },
+    {
+      field: "areaUsoComumNaoPropTotalEquivalente",
+      col: columnMap.areaUsoComumNaoPropTotalEquivalente,
+    },
+    { field: "coeficienteProporcionalidade", col: columnMap.coeficienteProporcionalidade },
+    { field: "areaUnidadeReal", col: columnMap.areaUnidadeReal },
+    { field: "areaUnidadeEquivalente", col: columnMap.areaUnidadeEquivalente },
+    { field: "quantidadeIdenticas", col: columnMap.quantidadeIdenticas },
   ];
 
   for (const { field, col } of fields) {

@@ -30,6 +30,33 @@ export const QUADRO_III_SECOES_ORDEM = [
   "Remunerações e custo global (itens 11–14)",
 ] as const;
 
+export type QuadroIIIGrupo = (typeof QUADRO_III_SECOES_ORDEM)[number];
+
+export const QUADRO_III_BLOCOS: Array<{
+  titulo: string;
+  grupos: QuadroIIIGrupo[];
+}> = [
+  {
+    titulo: "Referência e classificação",
+    grupos: ["Classificação e projeto-padrão", "CUB — Custo Unitário Básico"],
+  },
+  {
+    titulo: "Áreas e custo base",
+    grupos: ["Áreas globais (item 4)", "Custo básico global (item 5)"],
+  },
+  {
+    titulo: "Parcelas adicionais",
+    grupos: ["Parcelas adicionais (item 6)"],
+  },
+  {
+    titulo: "Totalização da obra",
+    grupos: [
+      "Subtotais, impostos e projetos (itens 7–10)",
+      "Remunerações e custo global (itens 11–14)",
+    ],
+  },
+];
+
 export const QUADRO_III_FIELD_DEFS: QuadroIIIFieldDef[] = [
   // Classificação / projeto-padrão
   {

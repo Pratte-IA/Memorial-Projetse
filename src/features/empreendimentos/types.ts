@@ -7,6 +7,7 @@ import type {
   CondominioPavimentoView,
   PendenciaVisao,
   Representante,
+  ResponsabilidadeObraForm,
 } from "./types/detail-types";
 
 /** Item resumido para listagens e dashboard. */
@@ -29,9 +30,12 @@ export interface EmpreendimentoListItem {
 
 /** Modelo completo da tela de detalhe com dados jurídicos e do imóvel. */
 export type EmpreendimentoView = Empreendimento & {
+  incorporadoraId: number | null;
   incorporadoraEndereco: IncorporadoraForm;
   representantes: Representante[];
   imovel: ImovelView;
+  cartorioCidade: string;
+  responsabilidadeObra: ResponsabilidadeObraForm;
   areaPrivativaTotal: number;
   areaComumTotal: number;
   pavimentosAreas: CondominioPavimentoView[];

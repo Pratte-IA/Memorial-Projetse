@@ -82,6 +82,7 @@ const EMPREENDIMENTO_DETAIL_SELECT = `
   pendencias_count,
   updated_at,
   incorporadoras (
+    id,
     razao_social,
     cnpj,
     endereco,
@@ -265,6 +266,11 @@ export async function fetchEmpreendimentoDetail(id: number): Promise<Empreendime
       "projeto_alvara",
       "projeto_data_aprovacao",
       "rt_art",
+      "cartorio_cidade",
+      "responsavel_obra_nome",
+      "responsavel_obra_crea",
+      "responsavel_obra_art",
+      "responsavel_obra_formacao",
     ]);
 
   for (const dado of dadosFallback ?? []) {
@@ -318,6 +324,26 @@ export async function fetchEmpreendimentoDetail(id: number): Promise<Empreendime
     if (dado.campo === "rt_art" && view.art === "—" && dado.valor?.trim()) {
       view.art = dado.valor.trim();
     }
+
+    if (dado.campo === "cartorio_cidade" && dado.valor?.trim()) {
+      view.cartorioCidade = dado.valor.trim();
+    }
+
+    if (dado.campo === "responsavel_obra_nome" && dado.valor?.trim()) {
+      view.responsabilidadeObra.engenheiro = dado.valor.trim();
+    }
+
+    if (dado.campo === "responsavel_obra_crea" && dado.valor?.trim()) {
+      view.responsabilidadeObra.crea = dado.valor.trim();
+    }
+
+    if (dado.campo === "responsavel_obra_art" && dado.valor?.trim()) {
+      view.responsabilidadeObra.art = dado.valor.trim();
+    }
+
+    if (dado.campo === "responsavel_obra_formacao" && dado.valor?.trim()) {
+      view.responsabilidadeObra.formacao = dado.valor.trim();
+    }
   }
 
   if (view.vagas <= 0) {
@@ -334,7 +360,9 @@ export async function fetchEmpreendimentoDetail(id: number): Promise<Empreendime
     let totalVagas = sumVagasSecao38(preliminaresCampos);
     if (totalVagas <= 0) {
       totalVagas = preliminaresCampos.reduce((sum, item) => {
-        if (!item.campo?.startsWith("projeto_vagas")) return sum;
+        if (!item.campo?.startsWith("projeto_vagas") || item.campo === "projeto_vagas_total") {
+          return sum;
+        }
         const v = item.valor.trim();
         return /^\d+$/.test(v) ? sum + Number(v) : sum;
       }, 0);
@@ -369,6 +397,12 @@ export async function fetchEmpreendimentoDetail(id: number): Promise<Empreendime
       }
     } catch (error) {
       console.warn("Falha ao sincronizar composição do condomínio a partir do quadro técnico:", error);
+    }
+  }
+
+  if (view.cartorioCidade === "—" || !view.cartorioCidade.trim()) {
+    if (view.imovel.comarca !== "—") {
+      view.cartorioCidade = view.imovel.comarca;
     }
   }
 

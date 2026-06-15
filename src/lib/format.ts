@@ -146,19 +146,77 @@ export function ufPorExtenso(uf: string): string {
   return UF_NOME_EXTENSO[key] ?? "";
 }
 
-/** Converte data dd/mm/aaaa (ou ISO) para ISO yyyy-mm-dd. */
-export function parseBrDate(value: string): string | null {
+export interface ParsedBrDate {
+  day: number;
+  month: number;
+  year: number;
+}
+
+function expandTwoDigitYear(year: number): number {
+  if (year >= 100) return year;
+  return year >= 70 ? 1900 + year : 2000 + year;
+}
+
+/** Interpreta datas em DD/MM/AAAA, MM/DD/AA (Excel US) ou ISO. */
+export function parseFlexibleDate(value: string): ParsedBrDate | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
 
-  const brMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (brMatch) {
-    const [, day, month, year] = brMatch;
-    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    const year = Number(isoMatch[1]);
+    const month = Number(isoMatch[2]);
+    const day = Number(isoMatch[3]);
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+    return { day, month, year };
   }
 
-  if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) return trimmed.slice(0, 10);
-  return null;
+  const slashMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (!slashMatch) return null;
+
+  const part1 = Number(slashMatch[1]);
+  const part2 = Number(slashMatch[2]);
+  const year = expandTwoDigitYear(Number(slashMatch[3]));
+
+  let day: number;
+  let month: number;
+  if (part1 > 12) {
+    day = part1;
+    month = part2;
+  } else if (part2 > 12) {
+    month = part1;
+    day = part2;
+  } else {
+    day = part1;
+    month = part2;
+  }
+
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  return { day, month, year };
+}
+
+/** Exibe data no padrão DD/MM/AAAA. */
+export function formatBrDateDisplay(value: string): string {
+  const parsed = parseFlexibleDate(value);
+  if (!parsed) return value;
+  const { day, month, year } = parsed;
+  return `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}`;
+}
+
+/** Máscara de digitação DD/MM/AAAA. */
+export function maskBrDateInput(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
+/** Converte data dd/mm/aaaa (ou ISO) para ISO yyyy-mm-dd. */
+export function parseBrDate(value: string): string | null {
+  const parsed = parseFlexibleDate(value);
+  if (!parsed) return null;
+  const { day, month, year } = parsed;
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 /** Exibe UF com nome do estado, sem traço duplicado quando o extenso está vazio. */

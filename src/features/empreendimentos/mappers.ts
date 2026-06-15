@@ -25,6 +25,7 @@ type EnderecoJson = Record<string, unknown> | null;
 
 type IncorporadoraListEmbed = { razao_social: string; cnpj: string | null } | null;
 type IncorporadoraDetailEmbed = {
+  id: number;
   razao_social: string;
   cnpj: string | null;
   endereco: EnderecoJson;
@@ -401,9 +402,17 @@ export function mapRowToView(row: EmpreendimentoDetailRowWithJoins): Empreendime
     dataAprovacao: formatDateBr(dt?.data_aprovacao),
     crea: dt?.crea_cau ?? "—",
     art: dt?.art_rrt ?? "—",
+    incorporadoraId: row.incorporadoras?.id ?? null,
     incorporadoraEndereco: mapIncorporadoraEndereco(row),
     representantes,
     imovel: mapImovel(row, areaTerreno),
+    cartorioCidade: "",
+    responsabilidadeObra: {
+      engenheiro: "",
+      crea: "",
+      art: "",
+      formacao: "Engenheiro Civil",
+    },
     areaPrivativaTotal: Number(dt?.area_privativa_total ?? 0),
     areaComumTotal: Number(dt?.area_comum_total ?? 0),
     pavimentosAreas: mapCondominioPavimentosEmbed(row.condominio_pavimentos),

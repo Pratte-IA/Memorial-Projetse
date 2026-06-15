@@ -1,7 +1,10 @@
 import type { QuadroId } from "../types";
 import {
+  DEFAULT_DATA_COL_MIN_WIDTH_PX,
+  getColumnMinWidth,
   getStickyColumnStyle,
   STICKY_COLUMN_WIDTH_PX,
+  type ColumnWidthMap,
   type TabelaColuna,
 } from "./quadro-tabela-columns";
 
@@ -25,18 +28,25 @@ export interface GroupedHeaderCell {
 }
 
 const SECTION_LABELS: Record<string, string> = {
-  nao_prop: "Áreas de divisão não proporcional",
-  prop: "Áreas de divisão proporcional",
+  nao_prop: "Área de divisão não proporcional",
+  prop: "Área de divisão proporcional",
   pavimento: "Área do pavimento",
   quantidade: "Quantidade (pav. idênticos)",
+  quantidade_unidades: "Quantidade (número de unidades idênticas)",
   unidade_areas: "Áreas da unidade autônoma",
   coef_area: "Coeficiente e área da unidade",
+};
+
+/** Colunas cujo rótulo na linha folha difere do padrão num — short. */
+const LEAF_LABEL_OVERRIDES: Record<string, string> = {
+  colQtd: SECTION_LABELS.quantidade,
+  colQtdUnidades: SECTION_LABELS.quantidade_unidades,
 };
 
 const GROUP_LABELS: Record<string, string> = {
   privativa: "Área privativa",
   uso_comum_np: "Área de uso comum",
-  uso_comum_p: "Áreas de uso comum",
+  uso_comum_p: "Área de uso comum",
 };
 
 export const PAVIMENTO_HEADER_META: Record<string, ColHeaderMeta> = {
@@ -57,7 +67,7 @@ export const PAVIMENTO_HEADER_META: Record<string, ColHeaderMeta> = {
   col16: { num: "16", short: "Equiv. padrão (12+14)", section: "prop", group: "uso_comum_p" },
   col17: { num: "17", short: "Real (5+10+15)", section: "pavimento" },
   col18: { num: "18", short: "Equiv. padrão (6+11+16)", section: "pavimento" },
-  colQtd: { num: "", short: "Nº idênticos", section: "quantidade" },
+  colQtd: { num: "", short: "Nº idênticos", section: "pavimento" },
 };
 
 export const ACABAMENTO_HEADER_META: Record<string, ColHeaderMeta> = {
@@ -104,6 +114,7 @@ export const QII_HEADER_META: Record<string, ColHeaderMeta> = {
   col31: { num: "31", short: "Coef. proporcionalidade", section: "coef_area" },
   col37: { num: "37", short: "Área unidade real", section: "coef_area" },
   col38: { num: "38", short: "Área unidade equiv.", section: "coef_area" },
+  colQtdUnidades: { num: "", short: "Nº idênticas", section: "coef_area" },
 };
 
 export function usesGroupedHeader(quadroId: QuadroId): boolean {
@@ -147,15 +158,20 @@ function leafCoveredBySectionRow(enriched: EnrichedCol[], meta: ColHeaderMeta): 
   return count === 1 && !meta.group;
 }
 
+function leafLabelForColumn(colId: string, meta: ColHeaderMeta, colLabel: string): string {
+  const override = LEAF_LABEL_OVERRIDES[colId];
+  if (override) return override;
+  return meta.num ? `${meta.num} — ${meta.short}` : meta.short || colLabel;
+}
+
 interface EnrichedCol {
   col: TabelaColuna<unknown>;
   index: number;
   meta?: ColHeaderMeta;
 }
 
-function spanCells(
+function buildGroupRow(
   items: EnrichedCol[],
-  level: "section" | "group",
   labels: Record<string, string>,
 ): GroupedHeaderCell[] {
   const cells: GroupedHeaderCell[] = [];
@@ -164,37 +180,44 @@ function spanCells(
   while (i < items.length) {
     const item = items[i];
 
-    if (item.col.sticky) {
+    if (item.col.sticky || !item.meta) {
       i++;
       continue;
     }
 
-    if (!item.meta) {
-      i++;
+    if (item.meta.group) {
+      const groupKey = item.meta.group;
+      let j = i;
+      while (j < items.length) {
+        const next = items[j];
+        if (next.col.sticky || !next.meta || next.meta.group !== groupKey) break;
+        j++;
+      }
+      cells.push({
+        label: labels[groupKey] ?? groupKey,
+        colspan: j - i,
+        rowspan: 1,
+        tier: "group",
+      });
+      i = j;
       continue;
     }
 
-    const key =
-      level === "section" ? item.meta.section : item.meta.group ?? item.meta.section;
-
-    if (level === "group" && !item.meta.group) {
-      i++;
-      continue;
-    }
-
+    const sectionKey = item.meta.section;
     let j = i;
     while (j < items.length) {
       const next = items[j];
-      if (next.col.sticky || !next.meta) break;
-      const nextKey =
-        level === "section" ? next.meta.section : next.meta.group ?? next.meta.section;
-      if (nextKey !== key) break;
+      if (
+        next.col.sticky ||
+        !next.meta ||
+        next.meta.section !== sectionKey ||
+        next.meta.group
+      ) {
+        break;
+      }
       j++;
     }
-
-    const count = j - i;
-    const label = labels[key] ?? key;
-    cells.push({ label, colspan: count, rowspan: 1, tier: "group" });
+    cells.push({ label: "", colspan: j - i, rowspan: 1, tier: "group" });
     i = j;
   }
 
@@ -213,7 +236,7 @@ export function buildGroupedHeaderRows(
     meta: metaMap[col.id],
   }));
 
-  const groupCells = spanCells(enriched, "group", GROUP_LABELS);
+  const groupCells = buildGroupRow(enriched, GROUP_LABELS);
   const headerRowCount = groupCells.length > 0 ? 3 : 2;
   const sectionRowspanWhenNoGroup = headerRowCount - 1;
 
@@ -237,9 +260,7 @@ export function buildGroupedHeaderRows(
     .filter((item) => item.meta && !leafCoveredBySectionRow(enriched, item.meta))
     .map((item) => {
       const label = item.meta
-        ? item.meta.num
-          ? `${item.meta.num} — ${item.meta.short}`
-          : item.meta.short || item.col.label
+        ? leafLabelForColumn(item.col.id, item.meta, item.col.label)
         : item.col.label;
 
       return {
@@ -300,14 +321,24 @@ export function buildGroupedHeaderRows(
 export function getHeaderStickyStyle(
   colunas: TabelaColuna<unknown>[],
   columnIndex: number,
+  columnWidths?: ColumnWidthMap,
 ): { left: number; minWidth: number } | null {
-  const sticky = getStickyColumnStyle(colunas, columnIndex);
+  const sticky = getStickyColumnStyle(colunas, columnIndex, columnWidths);
   if (!sticky) return null;
   return { left: sticky.left, minWidth: sticky.minWidth };
 }
 
-export const DEFAULT_DATA_COL_MIN_WIDTH = 96;
+export const DEFAULT_DATA_COL_MIN_WIDTH = DEFAULT_DATA_COL_MIN_WIDTH_PX;
 
-export function getDataColumnMinWidth(colId: string): number {
+export function getDataColumnMinWidth(
+  colId: string,
+  colunas?: TabelaColuna<unknown>[],
+  columnWidths?: ColumnWidthMap,
+): number {
+  if (columnWidths?.[colId]) return columnWidths[colId];
+  if (colunas) {
+    const col = colunas.find((c) => c.id === colId);
+    if (col) return getColumnMinWidth(col, columnWidths);
+  }
   return STICKY_COLUMN_WIDTH_PX[colId] ?? DEFAULT_DATA_COL_MIN_WIDTH;
 }

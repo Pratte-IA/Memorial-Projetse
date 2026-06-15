@@ -13,8 +13,12 @@ import type { LinhaAcabamento, QuadroExtraido } from "../types";
 import { QuadroStepLayout } from "./quadro-step-layout";
 import {
   buildQuadroTabelaView,
+  computeColumnContentWidths,
   formatCellValue,
+  getColumnMinWidth,
+  getColumnWidthStyle,
   getStickyColumnStyle,
+  sumColumnWidths,
   type StickyColumnStyle,
   type TabelaColuna,
 } from "./quadro-tabela-columns";
@@ -48,12 +52,9 @@ function stickyClassNames(isHeader: boolean, isLastSticky: boolean): string {
 }
 
 function textColumnClassNames(col: TabelaColuna<unknown>, sticky: StickyColumnStyle | null): string {
-  if (sticky) return "";
-  if (col.wrap) {
-    return "whitespace-normal break-words align-top min-w-[12rem] max-w-[min(32rem,55vw)]";
-  }
+  if (sticky) return "whitespace-nowrap";
   if (col.truncate) return "max-w-[200px] truncate";
-  return "";
+  return "whitespace-nowrap";
 }
 
 export function QuadroTabelaStep({ quadro, alertas, onChange, onIrParaQuadro }: QuadroTabelaStepProps) {
@@ -81,6 +82,22 @@ export function QuadroTabelaStep({ quadro, alertas, onChange, onIrParaQuadro }: 
   const pageRows = linhas.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
   const groupedHeader = usesGroupedHeader(quadro.id);
 
+  const columnWidths = useMemo(
+    () =>
+      colunas.length && linhas.length
+        ? computeColumnContentWidths(colunas as TabelaColuna<unknown>[], linhas)
+        : {},
+    [colunas, linhas],
+  );
+
+  const tableWidthPx = useMemo(
+    () =>
+      colunas.length
+        ? sumColumnWidths(colunas as TabelaColuna<unknown>[], columnWidths)
+        : undefined,
+    [colunas, columnWidths],
+  );
+
   return (
     <QuadroStepLayout
       titulo={quadro.titulo}
@@ -104,30 +121,41 @@ export function QuadroTabelaStep({ quadro, alertas, onChange, onIrParaQuadro }: 
       </div>
 
       <div className="rounded-md border border-border overflow-x-auto max-w-full">
-        <Table className="[&>div]:overflow-visible">
+        <Table
+          className="table-fixed !w-auto"
+          style={tableWidthPx ? { width: tableWidthPx, minWidth: tableWidthPx } : undefined}
+        >
+          <colgroup>
+            {(colunas as TabelaColuna<unknown>[]).map((col) => (
+              <col
+                key={col.id}
+                style={{
+                  width: columnWidths[col.id] ?? getColumnMinWidth(col, columnWidths),
+                }}
+              />
+            ))}
+          </colgroup>
           {groupedHeader ? (
-            <GroupedTableHeader quadroId={quadro.id} colunas={colunas as TabelaColuna<unknown>[]} />
+            <GroupedTableHeader
+              quadroId={quadro.id}
+              colunas={colunas as TabelaColuna<unknown>[]}
+              columnWidths={columnWidths}
+            />
           ) : (
             <TableHeader>
               <TableRow>
                 {colunas.map((col, colIndex) => {
                   const colDef = col as TabelaColuna<unknown>;
-                  const sticky = getStickyColumnStyle(colunas as TabelaColuna<unknown>[], colIndex);
+                  const sticky = getStickyColumnStyle(
+                    colunas as TabelaColuna<unknown>[],
+                    colIndex,
+                    columnWidths,
+                  );
                   return (
                     <TableHead
                       key={col.id}
-                      className={`text-xs ${
-                        colDef.wrap ? "whitespace-normal" : "whitespace-nowrap"
-                      } ${sticky ? stickyClassNames(true, sticky.isLastSticky) : textColumnClassNames(colDef, null)}`}
-                      style={
-                        sticky
-                          ? {
-                              left: sticky.left,
-                              minWidth: sticky.minWidth,
-                              width: sticky.minWidth,
-                            }
-                          : undefined
-                      }
+                      className={`text-xs whitespace-nowrap ${sticky ? stickyClassNames(true, sticky.isLastSticky) : textColumnClassNames(colDef, null)}`}
+                      style={getColumnWidthStyle(colDef, sticky, columnWidths) ?? undefined}
                     >
                       {col.label}
                     </TableHead>
@@ -166,7 +194,11 @@ export function QuadroTabelaStep({ quadro, alertas, onChange, onIrParaQuadro }: 
                   const display = colDef.mono
                     ? formatCellValue(raw, true, decimals)
                     : formatCellValue(raw, false, decimals);
-                  const sticky = getStickyColumnStyle(colunas as TabelaColuna<unknown>[], colIndex);
+                  const sticky = getStickyColumnStyle(
+                    colunas as TabelaColuna<unknown>[],
+                    colIndex,
+                    columnWidths,
+                  );
                   const fieldKey = colDef.fieldKey;
                   const canEdit = editavel && fieldKey && globalIndex >= 0;
 
@@ -179,15 +211,13 @@ export function QuadroTabelaStep({ quadro, alertas, onChange, onIrParaQuadro }: 
                       )} ${colDef.alwaysShow || colDef.sticky ? "font-medium" : ""} ${
                         sticky ? stickyClassNames(false, sticky.isLastSticky) : ""
                       }`}
-                      style={
-                        sticky
-                          ? { left: sticky.left, minWidth: sticky.minWidth, width: sticky.minWidth }
-                          : undefined
-                      }
+                      style={getColumnWidthStyle(colDef, sticky, columnWidths) ?? undefined}
                     >
                       {canEdit ? (
                         <Input
-                          className={`h-8 text-xs ${colDef.mono ? "text-mono-tabular" : ""} ${colDef.wrap ? "min-w-[12rem]" : "min-w-[5rem]"}`}
+                          className={`h-8 text-xs box-border w-full ${
+                            colDef.mono ? "text-mono-tabular" : ""
+                          }`}
                           value={cellEditDisplayValue(raw as string | number | null)}
                           onChange={(e) => {
                             if (!onChange || !fieldKey) return;

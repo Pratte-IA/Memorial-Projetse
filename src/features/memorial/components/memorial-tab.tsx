@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { StatusBadge } from "@/components/status-badge";
 import { Card } from "@/components/ui/card";
+import { HorizontalScrollArea } from "@/components/ui/horizontal-scroll-area";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
@@ -221,7 +222,7 @@ export function MemorialTab({ empreendimentoId, empreendimentoNome }: MemorialTa
   const unidadesLista = unidades ?? [];
 
   return (
-    <div className="grid grid-cols-12 gap-5">
+    <div className="grid grid-cols-12 gap-5 min-w-0">
       <Card className="col-span-12 lg:col-span-3 p-4 border-border shadow-none h-fit">
         <div className="flex items-center justify-between mb-3 px-1">
           <div className="text-xs uppercase tracking-wider text-muted-foreground">
@@ -266,52 +267,62 @@ export function MemorialTab({ empreendimentoId, empreendimentoNome }: MemorialTa
         </div>
       </Card>
 
-      <Card className="col-span-12 lg:col-span-6 p-0 border-border shadow-none overflow-hidden">
-        <div className="border-b border-border px-5 py-3 flex items-center justify-between bg-muted/30">
-          <div className="flex items-center gap-2">
-            <StatusBadge status={secao.status} />
-            <span className="text-sm font-medium">{secao.titulo}</span>
+      <Card className="col-span-12 lg:col-span-6 p-0 border-border shadow-none min-w-0">
+        <HorizontalScrollArea className="border-b border-border bg-muted/30">
+          <div className="flex items-center justify-between gap-4 px-5 py-3 min-w-[28rem]">
+            <div className="flex items-center gap-2 shrink-0">
+              <StatusBadge status={secao.status} />
+              <span className="text-sm font-medium whitespace-nowrap">{secao.titulo}</span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="whitespace-nowrap"
+                disabled={regenerateMutation.isPending}
+                onClick={() => void regenerar()}
+              >
+                {regenerateMutation.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-3.5 w-3.5" />
+                )}
+                Regenerar
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="whitespace-nowrap"
+                disabled={saveMutation.isPending}
+                onClick={() => void salvar()}
+              >
+                {saveMutation.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Save className="h-3.5 w-3.5" />
+                )}
+                Salvar
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="whitespace-nowrap"
+                disabled={statusMutation.isPending}
+                onClick={() => void marcarPendencia()}
+              >
+                Pendência
+              </Button>
+              <Button
+                size="sm"
+                className="whitespace-nowrap"
+                disabled={statusMutation.isPending}
+                onClick={() => void aprovar()}
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" /> Aprovar
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={regenerateMutation.isPending}
-              onClick={() => void regenerar()}
-            >
-              {regenerateMutation.isPending ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <RefreshCw className="h-3.5 w-3.5" />
-              )}
-              Regenerar
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={saveMutation.isPending}
-              onClick={() => void salvar()}
-            >
-              {saveMutation.isPending ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Save className="h-3.5 w-3.5" />
-              )}
-              Salvar
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={statusMutation.isPending}
-              onClick={() => void marcarPendencia()}
-            >
-              Pendência
-            </Button>
-            <Button size="sm" disabled={statusMutation.isPending} onClick={() => void aprovar()}>
-              <CheckCircle2 className="h-3.5 w-3.5" /> Aprovar
-            </Button>
-          </div>
-        </div>
+        </HorizontalScrollArea>
         <div className="px-10 py-10 bg-card min-h-[640px]">
           <div className="max-w-2xl mx-auto">
             <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground mb-2">

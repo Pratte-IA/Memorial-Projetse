@@ -8,6 +8,12 @@ import {
   fetchEmpreendimentosList,
   updateEmpreendimentoBasico,
 } from "./api";
+import {
+  deleteRepresentanteLegal,
+  saveRepresentanteLegal,
+  updateCadastroImovel,
+  updateResponsabilidadeObra,
+} from "./persist-cadastro-complementar";
 import { fetchProntidaoExportacao } from "./prontidao-exportacao";
 import { quadroTecnicoQueryKey } from "@/features/quadros-tecnicos/hooks";
 import type {
@@ -16,6 +22,8 @@ import type {
   DeleteEmpreendimentoInput,
   UpdateEmpreendimentoInput,
 } from "./types";
+import type { Representante, ResponsabilidadeObraForm } from "./types/detail-types";
+import type { CadastroImovelInput } from "./persist-cadastro-complementar";
 
 export const empreendimentosQueryKey = ["empreendimentos", "list"] as const;
 
@@ -102,6 +110,84 @@ export function useDeleteEmpreendimento() {
       void queryClient.invalidateQueries({ queryKey: ["dashboard", "indicators"] });
       void queryClient.removeQueries({
         queryKey: ["empreendimentos", "detail", variables.empreendimentoId],
+      });
+    },
+  });
+}
+
+export function useUpdateCadastroImovel() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: CadastroImovelInput) => updateCadastroImovel(input),
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({
+        queryKey: ["empreendimentos", "detail", variables.empreendimentoId],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: prontidaoExportacaoQueryKey(variables.empreendimentoId),
+      });
+    },
+  });
+}
+
+export function useUpdateResponsabilidadeObra() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: {
+      organizationId: number;
+      empreendimentoId: number;
+      responsabilidade: ResponsabilidadeObraForm;
+    }) => updateResponsabilidadeObra(input),
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({
+        queryKey: ["empreendimentos", "detail", variables.empreendimentoId],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: prontidaoExportacaoQueryKey(variables.empreendimentoId),
+      });
+    },
+  });
+}
+
+export function useSaveRepresentanteLegal() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: {
+      organizationId: number;
+      empreendimentoId: number;
+      incorporadoraId: number;
+      representante: Representante;
+    }) => saveRepresentanteLegal(input),
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({
+        queryKey: ["empreendimentos", "detail", variables.empreendimentoId],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: prontidaoExportacaoQueryKey(variables.empreendimentoId),
+      });
+    },
+  });
+}
+
+export function useDeleteRepresentanteLegal() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: {
+      organizationId: number;
+      empreendimentoId: number;
+      representanteId: string;
+      nome: string;
+    }) => deleteRepresentanteLegal(input),
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({
+        queryKey: ["empreendimentos", "detail", variables.empreendimentoId],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: prontidaoExportacaoQueryKey(variables.empreendimentoId),
       });
     },
   });

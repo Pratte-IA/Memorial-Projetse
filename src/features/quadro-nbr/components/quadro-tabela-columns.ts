@@ -30,14 +30,141 @@ export interface TabelaColuna<T> {
   getDecimals?: (row: T) => number | undefined;
 }
 
-/** Largura mínima (px) das colunas fixas para empilhar `left` corretamente. */
+/** Largura mínima (px) das colunas fixas — fallback quando não há dados. */
 export const STICKY_COLUMN_WIDTH_PX: Record<string, number> = {
-  torre: 88,
-  pavimento: 120,
-  designacao: 160,
+  torre: 100,
+  pavimento: 140,
+  designacao: 220,
   equipamento: 140,
   dependencia: 140,
 };
+
+export const WRAP_COLUMN_DEFAULT_MIN_WIDTH_PX = 280;
+
+export const NUMERIC_COLUMN_MIN_WIDTH_PX = 80;
+export const TEXT_DATA_COL_MIN_WIDTH_PX = 72;
+export const DEFAULT_DATA_COL_MIN_WIDTH_PX = NUMERIC_COLUMN_MIN_WIDTH_PX;
+
+/** Mapa coluna → largura (px) calculada a partir do conteúdo. */
+export type ColumnWidthMap = Record<string, number>;
+
+/** ~largura de um caractere em text-xs (px), com margem para acentos e maiúsculas. */
+const CHAR_PX_TEXT = 8.5;
+const CHAR_PX_MONO = 8;
+/** padding do input (px-3) + borda + padding da célula (p-1). */
+const FIELD_PADDING_PX = 52;
+/** Caracteres extras para evitar corte visual no limite. */
+const WIDTH_CHAR_BUFFER = 2;
+
+export function estimateTextWidthPx(text: string, mono = false): number {
+  if (!text) return 0;
+  const charPx = mono ? CHAR_PX_MONO : CHAR_PX_TEXT;
+  return Math.ceil(text.length * charPx + FIELD_PADDING_PX);
+}
+
+function widthFromMaxChars(maxChars: number, mono = false): number {
+  const charPx = mono ? CHAR_PX_MONO : CHAR_PX_TEXT;
+  return Math.ceil((maxChars + WIDTH_CHAR_BUFFER) * charPx + FIELD_PADDING_PX);
+}
+
+function columnCellText(
+  col: TabelaColuna<unknown>,
+  raw: string | number | null,
+  decimals?: number,
+): string {
+  if (raw === null || raw === undefined) return "";
+  if (typeof raw === "number") {
+    const formatted = formatCellValue(raw, true, decimals);
+    return formatted === "—" ? "" : formatted;
+  }
+  const trimmed = raw.trim();
+  return trimmed === "—" ? "" : trimmed;
+}
+
+function isAcabamentoSecaoRow(linha: unknown): boolean {
+  return Boolean((linha as LinhaAcabamento).isSecao);
+}
+
+/** Calcula a largura de cada coluna com base no maior texto (cabeçalho + linhas). */
+export function computeColumnContentWidths(
+  colunas: TabelaColuna<unknown>[],
+  linhas: unknown[],
+): ColumnWidthMap {
+  const widths: ColumnWidthMap = {};
+
+  for (const col of colunas) {
+    const floor = col.mono ? NUMERIC_COLUMN_MIN_WIDTH_PX : TEXT_DATA_COL_MIN_WIDTH_PX;
+    let maxChars = col.label.length;
+
+    for (const linha of linhas) {
+      if (isAcabamentoSecaoRow(linha)) continue;
+
+      const raw = col.getValue(linha);
+      const text = columnCellText(col, raw, col.getDecimals?.(linha));
+      maxChars = Math.max(maxChars, text.length);
+    }
+
+    widths[col.id] = Math.max(floor, widthFromMaxChars(maxChars, col.mono));
+  }
+
+  return widths;
+}
+
+export function sumColumnWidths(
+  colunas: TabelaColuna<unknown>[],
+  columnWidths: ColumnWidthMap,
+): number {
+  return colunas.reduce(
+    (total, col) => total + (columnWidths[col.id] ?? getColumnMinWidth(col, columnWidths)),
+    0,
+  );
+}
+
+export function inputSizeChars(value: string, label: string, mono = false): number {
+  const longest = Math.max(value.length, label.length, mono ? 4 : 6);
+  return longest + WIDTH_CHAR_BUFFER;
+}
+
+export function getColumnMinWidth(
+  col: TabelaColuna<unknown>,
+  columnWidths?: ColumnWidthMap,
+): number {
+  if (columnWidths?.[col.id]) {
+    return columnWidths[col.id];
+  }
+  if (col.sticky) {
+    return STICKY_COLUMN_WIDTH_PX[col.id] ?? 120;
+  }
+  if (col.mono) return NUMERIC_COLUMN_MIN_WIDTH_PX;
+  if (col.wrap) return WRAP_COLUMN_DEFAULT_MIN_WIDTH_PX;
+  return TEXT_DATA_COL_MIN_WIDTH_PX;
+}
+
+export function getColumnWidthStyle(
+  col: TabelaColuna<unknown>,
+  sticky: StickyColumnStyle | null,
+  columnWidths?: ColumnWidthMap,
+): { minWidth: number; width?: number; left?: number } | undefined {
+  const contentWidth = columnWidths?.[col.id];
+
+  if (sticky) {
+    const width = contentWidth ?? sticky.minWidth;
+    return { left: sticky.left, minWidth: width, width };
+  }
+
+  if (contentWidth) {
+    if (col.mono) {
+      return { minWidth: contentWidth, width: contentWidth };
+    }
+    return { minWidth: contentWidth, width: contentWidth };
+  }
+
+  if (col.mono) {
+    return { minWidth: NUMERIC_COLUMN_MIN_WIDTH_PX, width: NUMERIC_COLUMN_MIN_WIDTH_PX };
+  }
+
+  return undefined;
+}
 
 export interface StickyColumnStyle {
   left: number;
@@ -48,18 +175,22 @@ export interface StickyColumnStyle {
 export function getStickyColumnStyle(
   colunas: TabelaColuna<unknown>[],
   index: number,
+  columnWidths?: ColumnWidthMap,
 ): StickyColumnStyle | null {
   const col = colunas[index];
   if (!col.sticky) return null;
 
+  const widthFor = (c: TabelaColuna<unknown>) =>
+    columnWidths?.[c.id] ?? STICKY_COLUMN_WIDTH_PX[c.id] ?? 100;
+
   let left = 0;
   for (let i = 0; i < index; i++) {
     if (colunas[i].sticky) {
-      left += STICKY_COLUMN_WIDTH_PX[colunas[i].id] ?? 100;
+      left += widthFor(colunas[i]);
     }
   }
 
-  const minWidth = STICKY_COLUMN_WIDTH_PX[col.id] ?? 100;
+  const minWidth = widthFor(col);
   const isLastSticky = !colunas.slice(index + 1).some((c) => c.sticky);
 
   return { left, minWidth, isLastSticky };
@@ -174,6 +305,12 @@ const QII_COLS: TabelaColuna<LinhaUnidadeArea>[] = [
   numCol("col31", "31 — Coef. proporcionalidade", "coeficienteProporcionalidade", (r) => r.coeficienteProporcionalidade),
   numCol("col37", "37 — Área unidade real", "areaUnidadeReal", (r) => r.areaUnidadeReal),
   numCol("col38", "38 — Área unidade equiv.", "areaUnidadeEquivalente", (r) => r.areaUnidadeEquivalente),
+  numCol(
+    "colQtdUnidades",
+    "Qtd. idênticas",
+    "quantidadeIdenticas",
+    (r) => r.quantidadeIdenticas,
+  ),
 ];
 
 const QIVB_COLS: TabelaColuna<LinhaUnidadeReal>[] = [
@@ -417,7 +554,8 @@ export function buildQuadroTabelaView(quadro: QuadroExtraido): QuadroTabelaViewM
     const linhas = quadro.linhas as LinhaPavimento[];
     const allCols = buildPavimentoColumns(quadro.id === "qcomp");
     return {
-      colunas: filterColumnsWithData(linhas, allCols) as TabelaColuna<unknown>[],
+      // Grade NBR fixa (col. 2–18 + qtd.): cabeçalho agrupado depende de todas as colunas.
+      colunas: allCols as TabelaColuna<unknown>[],
       linhas,
       filtroFn: (row, filtro) =>
         (row as LinhaPavimento).pavimento.toLowerCase().includes(filtro.toLowerCase()),
@@ -427,7 +565,7 @@ export function buildQuadroTabelaView(quadro: QuadroExtraido): QuadroTabelaViewM
   if (quadro.id === "qii") {
     const linhas = quadro.linhas as LinhaUnidadeArea[];
     return {
-      colunas: filterColumnsWithData(linhas, QII_COLS) as TabelaColuna<unknown>[],
+      colunas: QII_COLS as TabelaColuna<unknown>[],
       linhas,
       filtroFn: (row, filtro) =>
         (row as LinhaUnidadeArea).designacao.toLowerCase().includes(filtro.toLowerCase()),

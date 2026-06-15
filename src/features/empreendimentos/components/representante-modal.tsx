@@ -26,11 +26,17 @@ export function RepresentanteModal({
   onOpenChange,
   representante,
   onSalvar,
+  titulo = "Representante legal",
+  descricao = "Cadastre a qualificação completa para a abertura do Memorial de Incorporação.",
+  salvando = false,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   representante: Representante | null;
   onSalvar: (r: Representante) => void;
+  titulo?: string;
+  descricao?: string;
+  salvando?: boolean;
 }) {
   const [form, setForm] = useState<Representante>(representante ?? REPRESENTANTE_VAZIO);
 
@@ -51,10 +57,8 @@ export function RepresentanteModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Representante legal</DialogTitle>
-          <DialogDescription>
-            Cadastre a qualificação completa para a abertura do Memorial de Incorporação.
-          </DialogDescription>
+          <DialogTitle>{titulo}</DialogTitle>
+          <DialogDescription>{descricao}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5 pt-2">
@@ -156,8 +160,8 @@ export function RepresentanteModal({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button onClick={() => onSalvar(form)}>
-            <Save className="h-4 w-4" /> Salvar representante
+          <Button onClick={() => onSalvar(form)} disabled={salvando}>
+            <Save className="h-4 w-4" /> {salvando ? "Salvando..." : "Salvar"}
           </Button>
         </DialogFooter>
       </DialogContent>

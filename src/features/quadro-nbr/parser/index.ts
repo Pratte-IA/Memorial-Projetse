@@ -23,6 +23,7 @@ import type {
   QuadroVIII,
 } from "../types";
 import { SHEET_MATCHERS, SHEET_PRELIMINARES } from "../constants";
+import { rotuloSecao38Preferido, rotuloVagaPadrao, parseQuantidadeVaga, calcularTotalVagasSubitens, CHAVE_VAGAS_TOTAL } from "../vaga-labels";
 import { parseCabecalhoPadrao } from "./cabecalho";
 import {
   cellNum,
@@ -30,10 +31,12 @@ import {
   normalizeNumericDisplayPtBr,
   extractFolhaInfo,
   findLabelValue,
+  findPreliminarNumberedItem,
   findRowIndex,
   findSheetName,
   isDataEndRow,
   isInlineFieldLabel,
+  isQuadroHeaderLikeValue,
   isTorreOuBlocoRow,
   isUnidadeDesignacaoValida,
   readWorkbookFromArrayBuffer,
@@ -46,6 +49,7 @@ import {
   parseLinhaResumoFromRow,
   parseResumoConfrontacaoLabels,
   parseLinhaUnidadeAreaFromRow,
+  buildQiiColumnMap,
   buildQivbColumnMap,
   buildQivb1ColumnMap,
   parseLinhaUnidadeRealFromRow,
@@ -73,10 +77,9 @@ const PRELIMINARES_LABELS: Array<{ chave: string; rotulo: string; busca: string 
   { chave: "projeto_qtd_unidades", rotulo: "3.5 Qtd. unidades", busca: "3.5" },
   { chave: "projeto_acabamento", rotulo: "3.6 Padrão acabamento", busca: "3.6" },
   { chave: "projeto_pavimentos", rotulo: "3.7 Pavimentos", busca: "3.7" },
-  { chave: "projeto_vagas_ua", rotulo: "3.8.1 Vagas UA", busca: "3.8.1" },
-  { chave: "projeto_vagas_38_2", rotulo: "3.8.2 Vagas", busca: "3.8.2" },
-  { chave: "projeto_vagas_38_3", rotulo: "3.8.3 Vagas", busca: "3.8.3" },
-  { chave: "projeto_vagas_38_4", rotulo: "3.8.4 Vagas", busca: "3.8.4" },
+  { chave: "projeto_vagas_ua", rotulo: rotuloVagaPadrao("projeto_vagas_ua") ?? "3.8.1 Vagas UA", busca: "3.8.1" },
+  { chave: "projeto_vagas_38_2", rotulo: rotuloVagaPadrao("projeto_vagas_38_2") ?? "3.8.2 Vagas", busca: "3.8.2" },
+  { chave: "projeto_vagas_38_3", rotulo: rotuloVagaPadrao("projeto_vagas_38_3") ?? "3.8.3 Vagas", busca: "3.8.3" },
   { chave: "projeto_area_terreno", rotulo: "3.9 Área terreno", busca: "3.9" },
   { chave: "projeto_data_aprovacao", rotulo: "3.10 Data aprovação", busca: "3.10" },
   { chave: "projeto_alvara", rotulo: "3.11 Alvará", busca: "3.11" },
@@ -92,7 +95,11 @@ function parsePreliminares(matrix: CellMatrix): QuadroPreliminares {
         ? findPreliminarCreaValue(matrix)
         : def.chave === "projeto_cep"
           ? findPreliminarCepValue(matrix)
-          : findPreliminarValue(matrix, def.busca);
+          : def.chave === "projeto_cidade_uf"
+            ? findPreliminarCidadeUfValue(matrix)
+            : def.chave === "projeto_padrao_nbr"
+              ? findPreliminarPadraoNbrValue(matrix)
+              : findPreliminarValue(matrix, def.busca);
     campos.push({
       chave: def.chave,
       rotulo: def.rotulo,
@@ -113,8 +120,13 @@ function parsePreliminares(matrix: CellMatrix): QuadroPreliminares {
   for (const vaga of parseCamposSecao38(matrix)) {
     const idx = campos.findIndex((c) => c.chave === vaga.chave);
     if (idx >= 0) {
-      // Sempre preferir o valor numérico da seção 3.8 (findPreliminarValue pega só a descrição).
-      campos[idx] = { ...campos[idx], valor: vaga.valor, fonte: vaga.fonte ?? campos[idx].fonte };
+      // Preferir valor numérico e rótulo descritivo da planilha (ex.: coberta/descoberta).
+      campos[idx] = {
+        ...campos[idx],
+        valor: vaga.valor,
+        rotulo: rotuloSecao38Preferido(vaga.rotulo, campos[idx].rotulo),
+        fonte: vaga.fonte ?? campos[idx].fonte,
+      };
     } else {
       campos.push(vaga);
     }
@@ -131,56 +143,53 @@ function parsePreliminares(matrix: CellMatrix): QuadroPreliminares {
   };
 }
 
-/** Extrai todos os subitens 3.8.x (vagas) das informações preliminares. */
+/** NBR 12.721 — seção 3.8 vai até 3.8.3 (UA, descobertas, cobertas). */
+const SECAO_38_MAX_SUB = 3;
+
+function chaveVagaSecao38(sub: number): string {
+  return sub === 1 ? "projeto_vagas_ua" : `projeto_vagas_38_${sub}`;
+}
+
+/** Extrai item 3.8 (total) e subitens 3.8.1–3.8.3 das informações preliminares. */
 function parseCamposSecao38(matrix: CellMatrix): CampoExtraido[] {
   const campos: CampoExtraido[] = [];
-  const seenSubs = new Set<string>();
 
-  for (let sub = 1; sub <= 9; sub++) {
+  for (let sub = 1; sub <= SECAO_38_MAX_SUB; sub++) {
     const token = `3.8.${sub}`;
-    const hit = findLabelValue(matrix, token);
-    if (!hit) continue;
+    const item = findPreliminarNumberedItem(matrix, token);
+    if (!item) continue;
 
-    const digitsOnly = hit.valor.replace(/[^\d]/g, "");
-    if (!digitsOnly || Number(digitsOnly) <= 0) continue;
-    const valor =
-      /^\d+$/.test(hit.valor.trim()) ? hit.valor.trim() : digitsOnly;
+    const quantidade = parseQuantidadeVaga(item.valor);
+    if (quantidade <= 0) continue;
 
-    seenSubs.add(String(sub));
+    const chave = chaveVagaSecao38(sub);
+    const fallback = rotuloVagaPadrao(chave) ?? token;
+
     campos.push({
-      chave: sub === 1 ? "projeto_vagas_ua" : `projeto_vagas_38_${sub}`,
-      rotulo: token,
-      valor,
-      fonte: { sheet: SHEET_PRELIMINARES, row: hit.row, col: hit.col },
+      chave,
+      rotulo: rotuloSecao38Preferido(item.rotulo, fallback),
+      valor: String(quantidade),
+      fonte: { sheet: SHEET_PRELIMINARES, row: item.row, col: item.col },
     });
   }
 
-  for (let r = 0; r < matrix.length; r++) {
-    const row = matrix[r] ?? [];
-    for (let c = 0; c < row.length; c++) {
-      const cellText = cellStr(row[c]);
-      const match = cellText.match(/\b3\.8\.(\d+)/i);
-      if (!match) continue;
+  const somaSubitens = calcularTotalVagasSubitens(campos);
+  const itemTotal = findPreliminarNumberedItem(matrix, "3.8");
+  const totalPlanilha = itemTotal ? parseQuantidadeVaga(itemTotal.valor) : 0;
+  const valorTotal = somaSubitens > 0 ? somaSubitens : totalPlanilha;
 
-      const sub = match[1];
-      if (seenSubs.has(sub)) continue;
-
-      const hit = findLabelValue(matrix, `3.8.${sub}`);
-      if (!hit) continue;
-
-      const digitsOnly = hit.valor.replace(/[^\d]/g, "");
-      if (!digitsOnly || Number(digitsOnly) <= 0) continue;
-      const valor =
-        /^\d+$/.test(hit.valor.trim()) ? hit.valor.trim() : digitsOnly;
-
-      seenSubs.add(sub);
-      campos.push({
-        chave: sub === "1" ? "projeto_vagas_ua" : `projeto_vagas_38_${sub}`,
-        rotulo: cellText.trim() || `3.8.${sub}`,
-        valor,
-        fonte: { sheet: SHEET_PRELIMINARES, row: hit.row, col: hit.col },
-      });
-    }
+  if (valorTotal > 0) {
+    const fallback = rotuloVagaPadrao(CHAVE_VAGAS_TOTAL) ?? "3.8 Quantidade de vagas";
+    campos.unshift({
+      chave: CHAVE_VAGAS_TOTAL,
+      rotulo: itemTotal
+        ? rotuloSecao38Preferido(itemTotal.rotulo, fallback)
+        : fallback,
+      valor: String(valorTotal),
+      fonte: itemTotal
+        ? { sheet: SHEET_PRELIMINARES, row: itemTotal.row, col: itemTotal.col }
+        : undefined,
+    });
   }
 
   return campos;
@@ -253,15 +262,110 @@ function scanNearbyPreliminarValue(
 ): { valor: string; row: number; col: number } | null {
   for (let dr = 0; dr <= 2; dr++) {
     const row = matrix[anchorRow + dr] ?? [];
-    const colStart = dr === 0 ? startCol + 1 : startCol;
+    // Mantém alinhamento na coluna de valor (à direita do rótulo) em todas as linhas.
+    const colStart = startCol + 1;
     for (let k = colStart; k < row.length; k++) {
       const val = cellStr(row[k]);
       if (!val || isInlineFieldLabel(val)) continue;
+      if (isQuadroHeaderLikeValue(val)) continue;
       if (validate && !validate(val)) continue;
       if (!validate && /^\d+(\.\d+)*$/.test(val.trim())) continue;
       return { valor: val, row: anchorRow + dr, col: k };
     }
   }
+  return null;
+}
+
+function looksLikeCidadeUf(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > 60) return false;
+  if (isInlineFieldLabel(trimmed) || isQuadroHeaderLikeValue(trimmed)) return false;
+  if (/^\d+(\.\d+)+/.test(trimmed)) return false;
+  if (!/\/.+/.test(trimmed)) return false;
+  if (/\b(nome|crea|art|cnpj|cpf|rg)\b/i.test(trimmed)) return false;
+  return true;
+}
+
+function looksLikePadraoNbr(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > 40) return false;
+  if (isInlineFieldLabel(trimmed) || isQuadroHeaderLikeValue(trimmed)) return false;
+  if (/designação|12\.721|semelhante|projeto-padrão da nbr|projeto padrao da nbr/i.test(trimmed)) {
+    return false;
+  }
+  return true;
+}
+
+function findPreliminarAnchorRow(
+  matrix: CellMatrix,
+  token: string,
+): { row: number; col: number } | null {
+  const numbered = findLabelValue(matrix, token);
+  if (numbered) return { row: numbered.row, col: numbered.col };
+
+  for (let r = 0; r < matrix.length; r++) {
+    const row = matrix[r] ?? [];
+    for (let c = 0; c < row.length; c++) {
+      const text = cellStr(row[c]);
+      if (!text.includes(token)) continue;
+      return { row: r, col: c };
+    }
+  }
+
+  return null;
+}
+
+/** Localiza Cidade/UF na aba Informações Preliminares (item 3.3). */
+function findPreliminarCidadeUfValue(
+  matrix: CellMatrix,
+): { valor: string; row: number; col: number } | null {
+  for (const label of [
+    "município / uf:",
+    "município/uf:",
+    "cidade / uf:",
+    "cidade/uf:",
+    "município / uf",
+    "cidade / uf",
+  ]) {
+    const hit = findLabelValue(matrix, label);
+    if (hit && looksLikeCidadeUf(hit.valor)) return hit;
+  }
+
+  const anchor = findPreliminarAnchorRow(matrix, "3.3");
+  if (!anchor) return null;
+
+  const numbered = findLabelValue(matrix, "3.3");
+  if (numbered && looksLikeCidadeUf(numbered.valor)) return numbered;
+
+  const nearby = scanNearbyPreliminarValue(matrix, anchor.row, anchor.col, looksLikeCidadeUf);
+  if (nearby) return nearby;
+
+  return null;
+}
+
+/** Localiza o código do projeto-padrão NBR (item 3.4, ex.: PP-B). */
+function findPreliminarPadraoNbrValue(
+  matrix: CellMatrix,
+): { valor: string; row: number; col: number } | null {
+  const anchor = findPreliminarAnchorRow(matrix, "3.4");
+  if (!anchor) return null;
+
+  const numbered = findLabelValue(matrix, "3.4");
+  if (numbered && looksLikePadraoNbr(numbered.valor)) return numbered;
+
+  for (let dr = 0; dr <= 2; dr++) {
+    const row = matrix[anchor.row + dr] ?? [];
+    for (let k = anchor.col + 1; k < row.length; k++) {
+      const val = cellStr(row[k]);
+      if (!val || isInlineFieldLabel(val) || isQuadroHeaderLikeValue(val)) continue;
+      if (!looksLikePadraoNbr(val)) continue;
+      return { valor: val, row: anchor.row + dr, col: k };
+    }
+  }
+
+  const nearby = scanNearbyPreliminarValue(matrix, anchor.row, anchor.col, looksLikePadraoNbr);
+  if (nearby) return nearby;
+
   return null;
 }
 
@@ -326,7 +430,12 @@ function findPreliminarValue(
   if (/^\d+(\.\d+)+$/.test(trimmedToken)) {
     const numbered = findLabelValue(matrix, trimmedToken);
     if (numbered) {
-      if (!isInlineFieldLabel(numbered.valor)) return numbered;
+      if (
+        !isInlineFieldLabel(numbered.valor) &&
+        !isQuadroHeaderLikeValue(numbered.valor)
+      ) {
+        return numbered;
+      }
       const nearby = scanNearbyPreliminarValue(matrix, numbered.row, numbered.col);
       if (nearby) return { ...nearby, valor: normalizeNumericDisplayPtBr(nearby.valor) };
     }
@@ -343,6 +452,7 @@ function findPreliminarValue(
       for (let k = c + 1; k < row.length; k++) {
         const val = cellStr(row[k]);
         if (!val || isInlineFieldLabel(val)) continue;
+        if (isQuadroHeaderLikeValue(val)) continue;
         if (val.toLowerCase().includes(needle.replace(":", ""))) continue;
         return { valor: normalizeNumericDisplayPtBr(val), row: r, col: k };
       }
@@ -532,6 +642,7 @@ function parseQuadroComplementar(matrix: CellMatrix, sheetName: string): QuadroC
 function parseQuadroII(matrix: CellMatrix): QuadroII {
   const { folha, totalFolhas } = extractFolhaInfo(matrix);
   const colNumsRow = findRowIndex(matrix, (row) => cellStr(row[0]) === "19");
+  const columnMap = buildQiiColumnMap(matrix, colNumsRow);
 
   const linhas =
     colNumsRow >= 0
@@ -539,7 +650,7 @@ function parseQuadroII(matrix: CellMatrix): QuadroII {
           const designacao = cellStr(row[0]);
           if (!designacao) return null;
 
-          return parseLinhaUnidadeAreaFromRow(row, { designacao, bloco });
+          return parseLinhaUnidadeAreaFromRow(row, { designacao, bloco }, columnMap);
         })
       : [];
 

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { CheckCircle2, Download, FileSpreadsheet, Loader2, Save } from "lucide-react";
+import { CheckCircle2, Loader2, Save } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,9 +19,6 @@ import { updateQuadroInDocumento } from "@/features/quadro-nbr/mapper";
 import { getWizardStepTitulo } from "@/features/quadro-nbr/quadro-iv";
 import type { DocumentoNbrExtraido, QuadroExtraido, QuadroId } from "@/features/quadro-nbr/types";
 import { validarQuadroAtual } from "@/features/quadro-nbr/validation";
-import { createQuadroSignedUrl } from "@/features/quadros-tecnicos/api";
-import { useLatestQuadroTecnico } from "@/features/quadros-tecnicos/hooks";
-import { formatFileSize, formatUploadedAt } from "@/features/quadros-tecnicos/utils";
 
 import { loadLatestQuadroDocumento } from "../load-quadro-documento";
 import { persistDocumentoEdits } from "../persist-documento-edits";
@@ -39,12 +36,9 @@ interface DadosValidadosTabProps {
 export function DadosValidadosTab({ empreendimentoId }: DadosValidadosTabProps) {
   const { membership, profile } = useAuth();
   const [stepIdx, setStepIdx] = useState(0);
-  const [baixando, setBaixando] = useState(false);
   const [documentoLocal, setDocumentoLocal] = useState<DocumentoNbrExtraido | null>(null);
   const [dirty, setDirty] = useState(false);
   const queryClient = useQueryClient();
-
-  const { data: quadroArquivo } = useLatestQuadroTecnico(empreendimentoId);
 
   const {
     data: documentoRemoto,
@@ -122,25 +116,6 @@ export function DadosValidadosTab({ empreendimentoId }: DadosValidadosTabProps) 
     if (index >= 0) setStepIdx(index);
   };
 
-  const baixarAnexo = async () => {
-    if (!quadroArquivo) return;
-    setBaixando(true);
-    try {
-      const url = await createQuadroSignedUrl(quadroArquivo.storagePath);
-      if (!url) throw new Error("URL indisponível");
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = quadroArquivo.fileName;
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } finally {
-      setBaixando(false);
-    }
-  };
-
   if (empreendimentoId === null) {
     return (
       <Card className="p-8 border-border shadow-none text-center text-sm text-muted-foreground">
@@ -173,27 +148,15 @@ export function DadosValidadosTab({ empreendimentoId }: DadosValidadosTabProps) 
 
   return (
     <div className="max-w-6xl space-y-5">
-      <Card className="p-4 border-[var(--color-verde-claro)]/40 bg-[var(--color-verde-claro)]/5 shadow-none">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <CheckCircle2 className="h-5 w-5 text-[var(--color-verde-escuro)] shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-semibold text-[var(--color-verde-escuro)]">
-                Quadros validados — edição habilitada
-              </p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Corrija qualquer campo nos quadros abaixo e clique em Salvar alterações para
-                atualizar o empreendimento.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {dirty && (
-              <span className="text-xs text-[var(--color-atencao)]">Alterações não salvas</span>
-            )}
+      {dirty && (
+        <Card className="p-4 border-[var(--color-atencao)]/40 bg-[var(--color-atencao)]/5 shadow-none">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <p className="text-sm text-[var(--color-atencao)]">
+              Alterações não salvas nos quadros abaixo.
+            </p>
             <Button
               size="sm"
-              disabled={!dirty || saveMutation.isPending}
+              disabled={saveMutation.isPending}
               onClick={() => void saveMutation.mutateAsync()}
             >
               {saveMutation.isPending ? (
@@ -203,34 +166,8 @@ export function DadosValidadosTab({ empreendimentoId }: DadosValidadosTabProps) 
               )}
               Salvar alterações
             </Button>
-            {quadroArquivo && (
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={baixando}
-                onClick={() => void baixarAnexo()}
-              >
-                {baixando ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Download className="h-3.5 w-3.5" />
-                )}
-                Baixar anexo
-              </Button>
-            )}
           </div>
-        </div>
-      </Card>
-
-      {quadroArquivo && (
-        <div className="flex items-center gap-3 text-xs text-muted-foreground px-1">
-          <FileSpreadsheet className="h-4 w-4 shrink-0" />
-          <span className="truncate font-medium text-foreground">{quadroArquivo.fileName}</span>
-          <span>·</span>
-          <span>{formatFileSize(quadroArquivo.sizeBytes)}</span>
-          <span>·</span>
-          <span>importado em {formatUploadedAt(quadroArquivo.createdAt)}</span>
-        </div>
+        </Card>
       )}
 
       <div className="flex items-center gap-2 flex-wrap">

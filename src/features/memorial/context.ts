@@ -217,6 +217,7 @@ export async function fetchMemorialContext(empreendimentoId: number): Promise<Me
       "responsavel_obra_formacao",
       "orgao_aprovacao",
       "prefeitura_aprovacao",
+      "cartorio_cidade",
     ]);
 
   const extraMap = new Map(
@@ -246,6 +247,17 @@ export async function fetchMemorialContext(empreendimentoId: number): Promise<Me
     dash(imovel?.matricula_extenso) !== "—"
       ? dash(imovel?.matricula_extenso)
       : matriculaPorExtenso(matriculaNumero) || "—";
+
+  const cartorioBase = dash(imovel?.cartorio);
+  const cartorioCidade =
+    dash(extraMap.get("cartorio_cidade")) !== "—"
+      ? dash(extraMap.get("cartorio_cidade"))
+      : dash(imovel?.comarca);
+  const ufImovel = dash(imovel?.uf ?? emp.uf);
+  const cartorioTexto =
+    cartorioBase !== "—" && cartorioCidade !== "—"
+      ? `${cartorioBase} desta cidade e comarca de ${cartorioCidade}${ufImovel !== "—" ? `-${ufImovel}` : ""}`
+      : cartorioBase;
 
   const torres = dados?.torres ?? null;
   const pavimentos = dados?.pavimentos ?? null;
@@ -312,7 +324,7 @@ export async function fetchMemorialContext(empreendimentoId: number): Promise<Me
       areaExtenso: dash(imovel?.area_extenso),
       matricula: matriculaNumero,
       matriculaExtenso,
-      cartorio: dash(imovel?.cartorio),
+      cartorio: cartorioTexto,
       confrontacoes: confrontacoesTexto || "—",
       confrontaNoroeste: noroeste.confrontante,
       medidaNoroeste: noroeste.medida,

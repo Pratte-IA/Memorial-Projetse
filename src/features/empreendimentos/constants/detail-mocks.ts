@@ -99,6 +99,7 @@ export const EMPREENDIMENTO_DETAIL_ABAS: {
   id: import("../types/detail-types").EmpreendimentoDetailAba;
   label: string;
 }[] = [
+  { id: "upload-quadro", label: "Upload do Quadro" },
   { id: "dados-validados", label: "Dados validados" },
   { id: "visao", label: "Cadastro complementar" },
   { id: "memorial", label: "Memorial" },

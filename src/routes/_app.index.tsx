@@ -4,6 +4,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollableTable } from "@/components/ui/scrollable-table";
 import {
   Plus,
   ArrowUpRight,
@@ -133,13 +134,13 @@ function Dashboard() {
             </Button>
           </div>
 
-          <Card className="border-border shadow-none overflow-hidden p-0">
+          <Card className="border-border shadow-none p-0">
             {erroLista ? (
               <div className="px-5 py-12 text-center text-sm text-[var(--color-alerta)]">
                 Não foi possível carregar os empreendimentos.
               </div>
             ) : (
-              <table className="w-full text-sm">
+              <ScrollableTable minWidthClass="min-w-[48rem]">
                 <thead className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
                   <tr>
                     <th className="text-left font-medium px-5 py-3">Empreendimento</th>
@@ -175,7 +176,7 @@ function Dashboard() {
                         <td className="px-5 py-3.5 text-muted-foreground text-mono-tabular">
                           {e.atualizadoEm}
                         </td>
-                        <td className="px-5 py-3.5 text-right">
+                        <td className="px-5 py-3.5 text-right whitespace-nowrap">
                           <Button variant="ghost" size="sm" asChild>
                             <Link to="/empreendimentos/$id" params={{ id: e.idParam }}>
                               Abrir
@@ -195,7 +196,7 @@ function Dashboard() {
                     </tr>
                   )}
                 </tbody>
-              </table>
+              </ScrollableTable>
             )}
           </Card>
         </section>

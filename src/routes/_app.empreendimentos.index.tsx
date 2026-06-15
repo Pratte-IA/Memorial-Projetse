@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollableTable } from "@/components/ui/scrollable-table";
 import { Plus, Search, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/features/auth/use-auth";
@@ -87,13 +88,13 @@ function Empreendimentos() {
           </div>
         </Card>
 
-        <Card className="border-border shadow-none overflow-hidden p-0">
+        <Card className="border-border shadow-none p-0">
           {isError ? (
             <div className="px-5 py-12 text-center text-sm text-[var(--color-alerta)]">
               Não foi possível carregar os empreendimentos. Tente recarregar a página.
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <ScrollableTable minWidthClass="min-w-[60rem]">
               <thead className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
                 <tr>
                   <th className="text-left font-medium px-5 py-3">Empreendimento</th>
@@ -157,7 +158,7 @@ function Empreendimentos() {
                       <td className="px-5 py-3.5">
                         <StatusBadge status={e.status} />
                       </td>
-                      <td className="px-5 py-3.5 text-right">
+                      <td className="px-5 py-3.5 text-right whitespace-nowrap">
                         <div className="inline-flex items-center gap-1">
                           <Button
                             variant="ghost"
@@ -200,7 +201,7 @@ function Empreendimentos() {
                   </tr>
                 )}
               </tbody>
-            </table>
+            </ScrollableTable>
           )}
         </Card>
       </div>

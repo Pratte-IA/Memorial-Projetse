@@ -5,8 +5,30 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { Plugin } from "vite";
 
-/** Bundled into dist/server for Netlify (node_bundler=none — no node_modules at runtime). */
-const SSR_FUNCTION_NO_EXTERNAL = true;
+/** Dev SSR must load React as CJS from node_modules; production bundles server deps for Netlify. */
+function ssrResolveForCommand(): Plugin {
+  return {
+    name: "ssr-resolve-for-command",
+    config(_config, { command }) {
+      if (command === "serve") {
+        return;
+      }
+
+      return {
+        ssr: {
+          noExternal: true,
+        },
+        environments: {
+          ssr: {
+            resolve: {
+              noExternal: true,
+            },
+          },
+        },
+      };
+    },
+  };
+}
 
 const RUNTIME_BARE_IMPORT_DENYLIST = [
   "h3-v2",
@@ -19,7 +41,6 @@ const RUNTIME_BARE_IMPORT_DENYLIST = [
   "destr",
   "ufo",
   "ofetch",
-  "@tanstack/",
 ];
 
 const BARE_IMPORT_PATTERN = /from\s+["'](?!node:|\.)([^"']+)["']/g;
@@ -113,21 +134,15 @@ function patchNetlifyFunctionBundle(): Plugin {
 
 export default defineConfig({
   nitro: false,
-  plugins: [netlify(), patchNetlifyFunctionBundle()],
+  plugins: [
+    ...(process.argv.includes("build") ? [netlify()] : []),
+    ssrResolveForCommand(),
+    patchNetlifyFunctionBundle(),
+  ],
   tanstackStart: {
     server: { entry: "server" },
   },
   vite: {
-    ssr: {
-      noExternal: SSR_FUNCTION_NO_EXTERNAL,
-    },
-    environments: {
-      ssr: {
-        resolve: {
-          noExternal: SSR_FUNCTION_NO_EXTERNAL,
-        },
-      },
-    },
     server: {
       port: 3000,
       strictPort: true,

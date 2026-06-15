@@ -87,6 +87,7 @@ export interface LinhaUnidadeArea extends WithFormatDecimals {
   coeficienteProporcionalidade: number | null;
   areaUnidadeReal: number | null;
   areaUnidadeEquivalente: number | null;
+  quantidadeIdenticas: number | null;
 }
 
 export interface LinhaUnidadeReal extends WithFormatDecimals {

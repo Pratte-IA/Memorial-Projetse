@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import { fmtNum, inferDecimalPlaces } from "@/lib/format";
+import { fmtNum, formatBrDateDisplay, inferDecimalPlaces } from "@/lib/format";
 
 export type CellMatrix = (string | number | null)[][];
 
@@ -161,7 +161,7 @@ export function normalizeNumericDisplayPtBr(raw: string): string {
     .trim();
 
   if (/[a-záàâãéêíóôõúç]{2,}/i.test(withoutUnits)) return raw;
-  if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(withoutUnits)) return raw;
+  if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(withoutUnits)) return formatBrDateDisplay(withoutUnits);
 
   const { value, decimals } = cellNumParsed(trimmed);
   if (value === null) return raw;
@@ -347,6 +347,100 @@ function extractValueFromNumberedRow(
   if (textCandidates.length > 0) return textCandidates[textCandidates.length - 1];
 
   return extractLastMoneyInRow(row);
+}
+
+function isStandaloneQuantityCell(value: string): boolean {
+  return /^\d+$/.test(value.trim());
+}
+
+/** Monta o rótulo descritivo de um item numerado a partir das células entre o número e o valor. */
+function buildNumberedRowLabel(
+  matrix: CellMatrix,
+  rowIndex: number,
+  labelCol: number,
+  valueCol: number,
+  itemNumber: string,
+): string {
+  const parts: string[] = [];
+
+  const pushText = (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || isStandaloneQuantityCell(trimmed)) return;
+    if (isPercentOnlyCell(trimmed)) return;
+    if (isInlineFieldLabel(trimmed)) return;
+    if (isQuadroHeaderLikeValue(trimmed)) return;
+    parts.push(trimmed);
+  };
+
+  const row = matrix[rowIndex] ?? [];
+  for (let k = labelCol; k < valueCol; k++) {
+    pushText(cellStr(row[k]));
+  }
+
+  for (let k = valueCol + 1; k <= valueCol + 3; k++) {
+    const text = cellStr(row[k]).trim();
+    if (/^(descoberta?s?|coberta?s?)$/i.test(text)) {
+      pushText(`Vagas ${text}`);
+    }
+  }
+
+  for (let r = rowIndex + 1; r < Math.min(matrix.length, rowIndex + 3); r++) {
+    const nextRow = matrix[r] ?? [];
+    const hasOtherItem = nextRow.some((cell) => {
+      const text = cellStr(cell);
+      return (
+        cellMatchesItemNumber(text, itemNumber) ||
+        (/\b[123]\.\d+(?:\.\d+)?\b/.test(text) && !text.includes(itemNumber))
+      );
+    });
+    if (hasOtherItem) break;
+
+    for (let k = labelCol; k < Math.max(valueCol + 2, labelCol + 10); k++) {
+      const text = cellStr(nextRow[k]).trim();
+      if (!text || isStandaloneQuantityCell(text)) continue;
+      if (/^(?:[123]\.\d)/.test(text)) break;
+      pushText(text);
+    }
+  }
+
+  return [...new Set(parts)].join(" ").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Localiza item numerado na aba Informações Preliminares, com rótulo descritivo da linha.
+ */
+export function findPreliminarNumberedItem(
+  matrix: CellMatrix,
+  itemNumber: string,
+): { valor: string; rotulo: string; row: number; col: number } | null {
+  for (let r = 0; r < matrix.length; r++) {
+    const row = matrix[r] ?? [];
+    let labelCol = -1;
+
+    for (let c = 0; c < row.length; c++) {
+      if (cellMatchesItemNumber(cellStr(row[c]), itemNumber)) {
+        labelCol = c;
+        break;
+      }
+    }
+
+    if (labelCol < 0) continue;
+
+    const extracted = extractValueFromNumberedRow(row, labelCol);
+    if (!extracted) continue;
+
+    const rotulo =
+      buildNumberedRowLabel(matrix, r, labelCol, extracted.col, itemNumber) || itemNumber;
+
+    return {
+      valor: normalizeNumericDisplayPtBr(extracted.valor),
+      rotulo,
+      row: r,
+      col: extracted.col,
+    };
+  }
+
+  return null;
 }
 
 /**

@@ -1,7 +1,8 @@
 import type { CreateEmpreendimentoInput } from "@/features/empreendimentos/types";
-import { fmtArea, parseBrNumeric, parseLoteQuadra } from "@/lib/format";
+import { fmtArea, formatBrDateDisplay, parseBrNumeric, parseLoteQuadra } from "@/lib/format";
 
 import { buildQivbVagaLookup, buildUnidadeVagaLookupKeys, extractVaga, lookupVagaInfo, normalizeDesignacao } from "./extract-vaga";
+import { CHAVE_VAGAS_TOTAL, parseQuantidadeVaga } from "./vaga-labels";
 import type { ConfrontacaoLabels, DocumentoNbrExtraido, QuadroExtraido } from "./types";
 import { getQuadroById } from "./parser";
 
@@ -30,20 +31,17 @@ function parseVagasFromValor(raw: string): number {
   return numbers.reduce((sum, n) => sum + n, 0);
 }
 
-/** Total de vagas 3.8.x — soma campos preliminares e fallback por chaves conhecidas. */
+/** Total de vagas 3.8.x — usa item 3.8 ou soma dos subitens. */
 function computeTotalVagas(documento: DocumentoNbrExtraido): number {
-  const fromCampos = sumVagasSecao38(documento.preliminares.campos);
-  if (fromCampos > 0) return fromCampos;
+  const totalCampo = parseQuantidadeVaga(getCampoValor(documento, CHAVE_VAGAS_TOTAL));
+  if (totalCampo > 0) return totalCampo;
+
+  const fromSubitens = sumVagasSecao38(documento.preliminares.campos);
+  if (fromSubitens > 0) return fromSubitens;
 
   let total = 0;
-  for (const chave of [
-    "projeto_vagas_ua",
-    "projeto_vagas_38_2",
-    "projeto_vagas_38_3",
-    "projeto_vagas_38_4",
-  ]) {
-    const raw = getCampoValor(documento, chave).trim();
-    if (/^\d+$/.test(raw)) total += Number(raw);
+  for (const chave of ["projeto_vagas_ua", "projeto_vagas_38_2", "projeto_vagas_38_3"]) {
+    total += parseQuantidadeVaga(getCampoValor(documento, chave));
   }
   return total;
 }
@@ -59,6 +57,8 @@ export function sumVagasSecao38(
     const chave = (item.chave ?? item.campo ?? "").trim();
     const rotulo = (item.rotulo ?? chave).trim();
     const valor = item.valor ?? "";
+
+    if (chave === CHAVE_VAGAS_TOTAL) continue;
 
     const quantidade = parseVagasFromValor(valor);
     if (quantidade <= 0) continue;
@@ -259,7 +259,7 @@ export function mapDocumentoToWizardInput(
     },
     aprovacao: {
       alvara: getCampoValor(documento, "projeto_alvara"),
-      dataAprovacao: getCampoValor(documento, "projeto_data_aprovacao"),
+      dataAprovacao: formatBrDateDisplay(getCampoValor(documento, "projeto_data_aprovacao")),
     },
   };
 }

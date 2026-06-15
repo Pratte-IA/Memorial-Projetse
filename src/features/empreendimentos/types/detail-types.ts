@@ -1,4 +1,5 @@
 export type EmpreendimentoDetailAba =
+  | "upload-quadro"
   | "dados-validados"
   | "visao"
   | "memorial"
@@ -51,6 +52,13 @@ export interface CondominioEspacoComumView {
 export type PendenciaVisao = {
   tone: "alerta" | "atencao" | "ceu";
   texto: string;
+};
+
+export type ResponsabilidadeObraForm = {
+  engenheiro: string;
+  crea: string;
+  art: string;
+  formacao: string;
 };
 
 export type ImovelView = {

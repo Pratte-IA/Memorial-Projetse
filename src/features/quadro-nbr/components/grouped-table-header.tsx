@@ -6,7 +6,12 @@ import {
   isResumoQuadro,
   type GroupedHeaderCell,
 } from "./quadro-grouped-header";
-import { getStickyColumnStyle, type TabelaColuna } from "./quadro-tabela-columns";
+import {
+  getColumnWidthStyle,
+  getStickyColumnStyle,
+  type ColumnWidthMap,
+  type TabelaColuna,
+} from "./quadro-tabela-columns";
 import type { QuadroId } from "../types";
 
 function stickyHeaderClass(isLastSticky: boolean): string {
@@ -30,12 +35,10 @@ function headerCellClass(
       return "text-[10px] leading-tight text-center bg-muted/40 font-bold uppercase tracking-wide";
     }
     if (resolvedTier === "column") {
-      return "text-[10px] leading-tight whitespace-nowrap min-w-[96px] text-center bg-muted/30 font-medium";
+      return "text-[10px] leading-tight whitespace-nowrap text-center bg-muted/30 font-medium";
     }
     if (resolvedTier === "leaf") {
-      return isResumoQuadro(quadroId)
-        ? "text-[10px] leading-tight whitespace-nowrap min-w-[120px] text-center"
-        : "text-[10px] leading-tight whitespace-nowrap min-w-[88px] text-center";
+      return "text-[10px] leading-tight whitespace-nowrap text-center";
     }
     return "text-[10px] leading-tight text-center bg-muted/25 font-medium";
   }
@@ -50,9 +53,10 @@ function headerCellClass(
 interface GroupedTableHeaderProps {
   quadroId: QuadroId;
   colunas: TabelaColuna<unknown>[];
+  columnWidths?: ColumnWidthMap;
 }
 
-export function GroupedTableHeader({ quadroId, colunas }: GroupedTableHeaderProps) {
+export function GroupedTableHeader({ quadroId, colunas, columnWidths }: GroupedTableHeaderProps) {
   const rows = buildGroupedHeaderRows(quadroId, colunas);
 
   return (
@@ -66,11 +70,11 @@ export function GroupedTableHeader({ quadroId, colunas }: GroupedTableHeaderProp
             {row.map((cell, cellIndex) => {
               const stickyStyle =
                 cell.sticky && cell.columnIndex !== undefined
-                  ? getHeaderStickyStyle(colunas, cell.columnIndex)
+                  ? getHeaderStickyStyle(colunas, cell.columnIndex, columnWidths)
                   : null;
               const stickyMeta =
                 cell.sticky && cell.columnIndex !== undefined
-                  ? getStickyColumnStyle(colunas, cell.columnIndex)
+                  ? getStickyColumnStyle(colunas, cell.columnIndex, columnWidths)
                   : null;
 
               return (
@@ -90,8 +94,12 @@ export function GroupedTableHeader({ quadroId, colunas }: GroupedTableHeaderProp
                           minWidth: stickyStyle.minWidth,
                           width: stickyStyle.minWidth,
                         }
-                      : cell.tier === "leaf" || cell.tier === "column"
-                        ? { minWidth: cell.tier === "leaf" ? 96 : 88 }
+                      : cell.columnIndex !== undefined
+                        ? (() => {
+                            const col = colunas[cell.columnIndex];
+                            if (!col) return undefined;
+                            return getColumnWidthStyle(col, null, columnWidths) ?? undefined;
+                          })()
                         : undefined
                   }
                 >
