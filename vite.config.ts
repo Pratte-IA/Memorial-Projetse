@@ -27,6 +27,13 @@ function patchNetlifyFunctionBundle(): Plugin {
 
       await cp(viteServerDir, bundledServerDir, { recursive: true, force: true });
 
+      // Vite emits ESM (.js with export/import). Without a package scope, Node treats .js as CJS
+      // inside Netlify Functions and throws "Unexpected token 'export'".
+      await writeFile(
+        join(bundledServerDir, "package.json"),
+        `${JSON.stringify({ type: "module" }, null, 2)}\n`,
+      );
+
       let content = await readFile(wrapperPath, "utf8");
       content = content.replace(
         /import serverEntrypoint from "[^"]+";/,
