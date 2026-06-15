@@ -2,6 +2,11 @@
   command = "pnpm run build"
   publish = "dist/client"
 
+# Vite already bundles SSR into dist/server; Netlify must not re-bundle with esbuild
+# (that re-resolves @tanstack/router-core and breaks at runtime).
+[functions]
+  node_bundler = "none"
+
 [dev]
   command = "pnpm run dev"
   port = 3000

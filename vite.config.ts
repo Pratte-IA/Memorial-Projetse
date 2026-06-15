@@ -6,10 +6,10 @@ import { join } from "node:path";
 import type { Plugin } from "vite";
 
 /**
- * The Netlify plugin writes server.mjs with a repo-relative import (../../../dist/server).
- * At Lambda runtime the handler lives at /var/task/server.mjs, so that path resolves to
- * /dist/server/server.js which does not exist. Copy the SSR bundle next to the wrapper and
- * point the import at ./dist-server/server.js with includedFiles for deployment packaging.
+ * Netlify's default function bundler (esbuild) re-bundles server.mjs and re-resolves
+ * `@tanstack/router-core` from node_modules, causing runtime export mismatches.
+ * Copy the Vite SSR output beside the wrapper, use a relative import, and set
+ * nodeBundler/includedFiles so the pre-built bundle is deployed as-is.
  */
 function patchNetlifyFunctionBundle(): Plugin {
   return {
@@ -33,19 +33,19 @@ function patchNetlifyFunctionBundle(): Plugin {
         'import serverEntrypoint from "./dist-server/server.js";',
       );
 
-      if (!content.includes("includedFiles")) {
-        content = content.replace(
-          /export const config = \{\nname:/,
-          'export const config = {\n  includedFiles: ["./dist-server/**"],\n  name:',
-        );
-      }
+      content = content.replace(
+        /export const config = \{\n(?:  includedFiles:[^\n]+\n)?(?:  nodeBundler:[^\n]+\n)?name:/,
+        `export const config = {
+  includedFiles: ["./dist-server/**"],
+  nodeBundler: "none",
+  name:`,
+      );
 
       await writeFile(wrapperPath, content);
     },
   };
 }
 
-// Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
 export default defineConfig({
   nitro: false,
   plugins: [netlify(), patchNetlifyFunctionBundle()],
@@ -53,6 +53,14 @@ export default defineConfig({
     server: { entry: "server" },
   },
   vite: {
+    environments: {
+      ssr: {
+        resolve: {
+          // Ensure TanStack packages are bundled into dist/server on every platform (CI included).
+          noExternal: [/@tanstack\/.*/],
+        },
+      },
+    },
     server: {
       port: 3000,
       strictPort: true,
