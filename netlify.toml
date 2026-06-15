@@ -2,10 +2,6 @@
   command = "pnpm run build"
   publish = "dist/client"
 
-[functions]
-  directory = ".netlify/v1/functions"
-  node_bundler = "none"
-
 [dev]
   command = "pnpm run dev"
   port = 3000
