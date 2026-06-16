@@ -1,8 +1,6 @@
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-
 import {
   fmtNum,
+  formatDateBr,
   normalizeLoteQuadraFields,
   parseBrNumeric,
   ufPorExtenso,
@@ -10,6 +8,7 @@ import {
 import { areaMetrosQuadradosPorExtenso, matriculaPorExtenso } from "@/lib/numero-extenso";
 import type { EmpreendimentoStatus } from "@/lib/mock-data";
 
+import { aggregateCondominioPavimentos } from "@/features/quadro-nbr/mapper";
 import { getEmpreendimentoStatusLabel } from "./status";
 import type { EmpreendimentoListItem, EmpreendimentoView } from "./types";
 import type {
@@ -141,14 +140,7 @@ function emptyOrDash(value: string | null | undefined): string {
   return trimmed ? trimmed : "—";
 }
 
-export function formatDateBr(value: string | null | undefined): string {
-  if (!value) return "—";
-  try {
-    return format(new Date(value), "dd/MM/yyyy", { locale: ptBR });
-  } catch {
-    return "—";
-  }
-}
+export { formatDateBr };
 
 function parseEnderecoParts(endereco: EnderecoJson): {
   rua: string;
@@ -183,6 +175,36 @@ function formatEnderecoFromJson(endereco: EnderecoJson): string {
   return [linha, parts.bairro, parts.cep].filter(Boolean).join(" · ");
 }
 
+function formatEnderecoMemorial(endereco: EnderecoJson): string {
+  if (!endereco) return "";
+
+  const texto = String(endereco.texto ?? endereco.completo ?? "").trim();
+  if (texto) return texto;
+
+  const logradouro = String(endereco.logradouro ?? endereco.rua ?? "");
+  const numero = String(endereco.numero ?? "");
+  if (logradouro && numero) return `${logradouro}, no ${numero}`;
+  return logradouro || numero || "";
+}
+
+/** Endereço da incorporadora: prioriza campo 1.4 validado no quadro NBR. */
+export function resolveIncorporadoraEnderecoMemorial(
+  enderecoDb: EnderecoJson,
+  enderecoQuadro?: string | null,
+  fallbackCidade?: string | null,
+  fallbackUf?: string | null,
+): { endereco: string; cidade: string; uf: string } {
+  const parts = parseEnderecoParts(enderecoDb);
+  const quadroTexto = enderecoQuadro?.trim() ?? "";
+  const dbTexto = formatEnderecoMemorial(enderecoDb);
+
+  return {
+    endereco: quadroTexto || dbTexto || "—",
+    cidade: parts.cidade || fallbackCidade?.trim() || "—",
+    uf: parts.estado || fallbackUf?.trim() || "—",
+  };
+}
+
 export function representanteFromNomeParcial(nome: string, id: string): Representante {
   return {
     id,
@@ -200,16 +222,78 @@ export function representanteFromNomeParcial(nome: string, id: string): Represen
   };
 }
 
+const REPRESENTANTE_PLACEHOLDER = /representante\s+legal/i;
+
+function normalizeNome(nome: string): string {
+  return nome
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "");
+}
+
+export function isRepresentantePlaceholder(nome: string): boolean {
+  return REPRESENTANTE_PLACEHOLDER.test(nome.trim());
+}
+
+/** Um único sócio administrador: prioriza nome do quadro NBR e ignora placeholders de seed. */
+export function resolveSociosAdministradores(
+  representantesDb: Representante[],
+  sociosQuadro: Representante[],
+): Representante[] {
+  const repsReais = representantesDb.filter((r) => !isRepresentantePlaceholder(r.nome));
+
+  if (sociosQuadro.length > 0) {
+    const fromQuadro = sociosQuadro
+      .filter((s) => s.nome?.trim())
+      .map((socio) => mergeSocioComDadosDb(socio, repsReais));
+
+    const quadroNorms = new Set(fromQuadro.map((s) => normalizeNome(s.nome)));
+    const extras = repsReais
+      .filter((r) => !quadroNorms.has(normalizeNome(r.nome)))
+      .map((r) => ({ ...r, origemQuadro: false }));
+
+    return [...fromQuadro, ...extras];
+  }
+
+  if (repsReais.length > 0) {
+    return repsReais.map((r) => ({ ...r, origemQuadro: false }));
+  }
+
+  return [];
+}
+
+function mergeSocioComDadosDb(socioQuadro: Representante, repsDb: Representante[]): Representante {
+  const nome = socioQuadro.nome.trim();
+  const norm = normalizeNome(nome);
+  const match = repsDb.find((r) => normalizeNome(r.nome) === norm);
+  if (match) {
+    return { ...match, nome, origemQuadro: true };
+  }
+  return { ...socioQuadro, origemQuadro: true };
+}
+
+/** @deprecated Use resolveSociosAdministradores */
+export function resolveSocioAdministrador(
+  representantesDb: Representante[],
+  sociosQuadro: Representante[],
+): Representante[] {
+  return resolveSociosAdministradores(representantesDb, sociosQuadro);
+}
+
 export function mapSociosFromCampos(
   campos: Array<{ campo: string; valor: string | null }>,
 ): Representante[] {
   return campos
     .filter((c) => c.campo.startsWith("incorporador_socio_") && c.valor?.trim())
     .sort((a, b) => a.campo.localeCompare(b.campo))
-    .map((c) => representanteFromNomeParcial(c.valor!.trim(), `socio-${c.campo}`));
+    .map((c) => ({
+      ...representanteFromNomeParcial(c.valor!.trim(), `socio-${c.campo}`),
+      origemQuadro: true,
+    }));
 }
 
-function mapRepresentante(row: RepresentanteRowEmbed): Representante {
+export function mapRepresentante(row: RepresentanteRowEmbed): Representante {
   const endereco = parseEnderecoParts(row.endereco);
   return {
     id: String(row.id),
@@ -424,7 +508,7 @@ export function mapRowToView(row: EmpreendimentoDetailRowWithJoins): Empreendime
 export function mapCondominioPavimentosEmbed(
   rows: CondominioPavimentoRowEmbed[] | null | undefined,
 ): CondominioPavimentoView[] {
-  return (rows ?? [])
+  const mapped = (rows ?? [])
     .slice()
     .sort((a, b) => a.ordem - b.ordem)
     .map((row) => ({
@@ -432,9 +516,17 @@ export function mapCondominioPavimentosEmbed(
       torre: row.torre?.trim() || null,
       nome: row.nome,
       areaReal: Number(row.area_real ?? 0),
-      areaEquivalente:
-        row.area_equivalente != null ? Number(row.area_equivalente) : null,
+      areaEquivalente: row.area_equivalente != null ? Number(row.area_equivalente) : null,
+      ordem: row.ordem,
     }));
+
+  return aggregateCondominioPavimentos(mapped).map((p) => ({
+    id: p.id,
+    torre: null,
+    nome: p.nome,
+    areaReal: p.areaReal ?? 0,
+    areaEquivalente: p.areaEquivalente,
+  }));
 }
 
 export function mapCondominioEspacosComunsEmbed(

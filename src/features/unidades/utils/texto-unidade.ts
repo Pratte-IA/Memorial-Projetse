@@ -11,9 +11,13 @@ export interface UnidadeTextoInput {
   areaPrivativa: number;
   areaComum: number;
   areaTotal: number;
+  garden: number;
+  garagem: number;
+  areaTerrenoExclusiva: number;
   vaga: string;
   fracao: string;
   confrontacoes: string;
+  posicao: string;
 }
 
 export function numeroExtenso(n: number): string {
@@ -86,6 +90,29 @@ export function numeroExtensoLongo(n: number): string {
   return `${cen[c]} e ${numeroExtensoLongo(rest)}`;
 }
 
+function formatTerrenoExclusivo(u: UnidadeTextoInput): string {
+  const total =
+    u.areaTerrenoExclusiva > 0
+      ? u.areaTerrenoExclusiva
+      : u.garden > 0 && u.garagem > 0
+        ? u.garden + u.garagem
+        : u.garagem;
+
+  if (total > 0 && u.garden > 0 && u.garagem > 0) {
+    return `, com área de terreno exclusiva de ${fmtNum(total, 2)} m² (correspondente a ${fmtNum(u.garden, 2)} m² sendo área de garden e ${fmtNum(u.garagem, 2)} m² de área de garagem)`;
+  }
+
+  if (total > 0) {
+    return `, com área de terreno exclusiva de ${fmtNum(total, 2)} m² (correspondente à área de garagem)`;
+  }
+
+  if (u.tipo === "Garden") {
+    return ", com área de terreno exclusiva correspondente a área de garden e de garagem";
+  }
+
+  return ", com área de terreno exclusiva correspondente à área de garagem";
+}
+
 export function gerarDescricaoUnidade(
   u: UnidadeTextoInput,
   emp: Pick<Empreendimento, "nome">,
@@ -97,14 +124,13 @@ export function gerarDescricaoUnidade(
   const enderecoBase =
     "situar-se-á na Rua Ilhas Canárias, no 359, Bairro Interlagos, nesta Cidade e Comarca de CASCAVEL, Estado do PARANÁ";
   const areas = `terá a área construída total de ${fmtNum(u.areaTotal, 3)} m², sendo ${fmtNum(u.areaPrivativa, 2)} m² de área privativa e ${fmtNum(u.areaComum, 3)} m² de área de uso comum`;
-  const terreno =
-    u.tipo === "Garden"
-      ? `, com área de terreno exclusiva correspondente a área de garden e de garagem`
-      : `, com área de terreno exclusiva correspondente à área de garagem`;
+  const terreno = formatTerrenoExclusivo(u);
   const fracao = `, correspondendo-lhe a fração territorial de ${u.fracao}`;
   const confront = `Confrontar-se-á conforme: ${u.confrontacoes}`;
   const vaga = `; terá ainda, o direito de uso privativo e exclusivo de 01 vaga descoberta (${u.vaga}), localizada no pavimento térreo do Condomínio`;
-  return `${u.nome.toUpperCase()} (${numeroExt}), localizar-se-á no ${localPav} da ${u.torre} do ${emp.nome}, ${enderecoBase}, ${areas}${terreno}${fracao}. ${confront}${vaga}; tudo conforme alocado no referido projeto arquitetônico.`;
+  const posicao = u.posicao?.trim();
+  const localizacao = posicao ? `, ${posicao}` : "";
+  return `${u.nome.toUpperCase()} (${numeroExt}), localizar-se-á no ${localPav} da ${u.torre} do ${emp.nome}${localizacao}, ${enderecoBase}, ${areas}${terreno}${fracao}. ${confront}${vaga}; tudo conforme alocado no referido projeto arquitetônico.`;
 }
 
 export const ORDEM_PAVIMENTOS = [

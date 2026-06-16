@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { CheckCircle2, Loader2, Save } from "lucide-react";
+import { CheckCircle2, Loader2, Pencil, Save, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ export function DadosValidadosTab({ empreendimentoId }: DadosValidadosTabProps) 
   const { membership, profile } = useAuth();
   const [stepIdx, setStepIdx] = useState(0);
   const [documentoLocal, setDocumentoLocal] = useState<DocumentoNbrExtraido | null>(null);
+  const [editando, setEditando] = useState(false);
   const [dirty, setDirty] = useState(false);
   const queryClient = useQueryClient();
 
@@ -58,6 +59,7 @@ export function DadosValidadosTab({ empreendimentoId }: DadosValidadosTabProps) 
     if (documentoRemoto) {
       setDocumentoLocal(documentoRemoto);
       setDirty(false);
+      setEditando(false);
     }
   }, [documentoRemoto]);
 
@@ -75,6 +77,7 @@ export function DadosValidadosTab({ empreendimentoId }: DadosValidadosTabProps) 
     },
     onSuccess: () => {
       setDirty(false);
+      setEditando(false);
       toast.success("Alterações salvas.");
       if (empreendimentoId) {
         void queryClient.invalidateQueries({ queryKey: dadosValidadosQueryKey(empreendimentoId) });
@@ -102,11 +105,28 @@ export function DadosValidadosTab({ empreendimentoId }: DadosValidadosTabProps) 
   }, [documento, step.id]);
 
   const handleQuadroChange = (quadro: QuadroExtraido) => {
+    if (!editando) return;
     setDocumentoLocal((prev) => {
       if (!prev) return prev;
       return updateQuadroInDocumento(prev, quadro);
     });
     setDirty(true);
+  };
+
+  const handleIniciarEdicao = () => {
+    setEditando(true);
+  };
+
+  const handleCancelarEdicao = () => {
+    if (documentoRemoto) {
+      setDocumentoLocal(documentoRemoto);
+    }
+    setDirty(false);
+    setEditando(false);
+  };
+
+  const handleSalvar = () => {
+    void saveMutation.mutateAsync();
   };
 
   const irParaStep = (index: number) => setStepIdx(index);
@@ -148,28 +168,6 @@ export function DadosValidadosTab({ empreendimentoId }: DadosValidadosTabProps) 
 
   return (
     <div className="max-w-6xl space-y-5">
-      {dirty && (
-        <Card className="p-4 border-[var(--color-atencao)]/40 bg-[var(--color-atencao)]/5 shadow-none">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <p className="text-sm text-[var(--color-atencao)]">
-              Alterações não salvas nos quadros abaixo.
-            </p>
-            <Button
-              size="sm"
-              disabled={saveMutation.isPending}
-              onClick={() => void saveMutation.mutateAsync()}
-            >
-              {saveMutation.isPending ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Save className="h-3.5 w-3.5" />
-              )}
-              Salvar alterações
-            </Button>
-          </div>
-        </Card>
-      )}
-
       <div className="flex items-center gap-2 flex-wrap">
         {QUADROS_DETAIL_STEPS.map((s, i) => (
           <div key={s.id} className="flex items-center gap-2">
@@ -200,15 +198,58 @@ export function DadosValidadosTab({ empreendimentoId }: DadosValidadosTabProps) 
         ))}
       </div>
 
-      <p className="text-xs text-muted-foreground">{meta.descricao}</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">{meta.descricao}</p>
+        <div className="flex items-center gap-2 shrink-0">
+          {!editando ? (
+            <Button type="button" size="sm" variant="outline" onClick={handleIniciarEdicao}>
+              <Pencil className="h-3.5 w-3.5" />
+              Editar
+            </Button>
+          ) : (
+            <>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={saveMutation.isPending}
+                onClick={handleCancelarEdicao}
+              >
+                <X className="h-3.5 w-3.5" />
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={!dirty || saveMutation.isPending}
+                onClick={handleSalvar}
+              >
+                {saveMutation.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Save className="h-3.5 w-3.5" />
+                )}
+                Salvar
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {editando && dirty && (
+        <p className="text-xs text-[var(--color-atencao)]">
+          Alterações pendentes — clique em Salvar para persistir no banco.
+        </p>
+      )}
 
       <QuadroWizardContent
         stepId={step.id as QuadroWizardStepId}
         documento={documento}
-        alertas={alertasAtuais}
+        alertas={editando ? alertasAtuais : []}
         stepTituloFallback={step.titulo}
-        onQuadroChange={handleQuadroChange}
+        onQuadroChange={editando ? handleQuadroChange : undefined}
         onIrParaQuadro={irParaQuadro}
+        modoConsulta={!editando}
       />
 
       <div className="flex justify-between gap-2 pt-2">

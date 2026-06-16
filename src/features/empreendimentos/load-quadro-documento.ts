@@ -5,6 +5,8 @@ import { supabase } from "@/lib/supabase/client";
 
 import type { DocumentoNbrExtraido } from "@/features/quadro-nbr/types";
 
+import { applyDadosExtraidosToDocumento } from "./apply-dados-extraidos-edits";
+
 async function fetchLatestQuadroRow(empreendimentoId: number) {
   const { data, error } = await supabase
     .from("quadros_tecnicos")
@@ -27,6 +29,16 @@ async function downloadQuadroBuffer(storagePath: string): Promise<ArrayBuffer | 
   return data.arrayBuffer();
 }
 
+async function fetchDadosExtraidosOverlay(empreendimentoId: number) {
+  const { data, error } = await supabase
+    .from("dados_extraidos")
+    .select("bloco, campo, valor")
+    .eq("empreendimento_id", empreendimentoId);
+
+  if (error) throw error;
+  return data ?? [];
+}
+
 export async function loadLatestQuadroDocumento(
   empreendimentoId: number,
 ): Promise<DocumentoNbrExtraido | null> {
@@ -40,5 +52,8 @@ export async function loadLatestQuadroDocumento(
     type: resolveQuadroContentType(quadro.file_name, quadro.mime_type ?? undefined),
   });
 
-  return parseQuadroNbrFile(file);
+  const documento = await parseQuadroNbrFile(file);
+  const dadosExtraidos = await fetchDadosExtraidosOverlay(empreendimentoId);
+
+  return applyDadosExtraidosToDocumento(documento, dadosExtraidos);
 }

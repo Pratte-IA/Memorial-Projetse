@@ -1,9 +1,6 @@
+import { stripLoteamentoPrefix } from "@/lib/format";
 import { supabase } from "@/lib/supabase/client";
-import {
-  normalizeLoteQuadraFields,
-  parseBrNumeric,
-} from "@/lib/format";
-import { areaMetrosQuadradosPorExtenso, matriculaPorExtenso } from "@/lib/numero-extenso";
+import { matriculaPorExtenso } from "@/lib/numero-extenso";
 
 import type { Confrontacao, Representante, ResponsabilidadeObraForm } from "./types/detail-types";
 
@@ -13,9 +10,6 @@ export type CadastroImovelInput = {
   matriculaNumero: string;
   cartorio: string;
   cartorioCidade: string;
-  loteNumero: string;
-  area: string;
-  quadra: string;
   loteamento: string;
   confrontacoes: Confrontacao[];
 };
@@ -82,8 +76,6 @@ function representanteEnderecoJson(r: Representante) {
 
 export async function updateCadastroImovel(input: CadastroImovelInput): Promise<void> {
   const matriculaNumero = input.matriculaNumero.trim();
-  const loteQuadra = normalizeLoteQuadraFields(input.loteNumero.trim(), input.quadra.trim());
-  const areaNumero = parseBrNumeric(input.area.trim());
 
   const { data: existingImovel } = await supabase
     .from("imoveis")
@@ -95,14 +87,7 @@ export async function updateCadastroImovel(input: CadastroImovelInput): Promise<
     matricula_numero: matriculaNumero || null,
     matricula_extenso: matriculaNumero ? matriculaPorExtenso(matriculaNumero) : null,
     cartorio: input.cartorio.trim() || null,
-    lote_numero: loteQuadra.lote || null,
-    lote_extenso: loteQuadra.loteExtenso || null,
-    quadra_numero: loteQuadra.quadra || null,
-    quadra_extenso: loteQuadra.quadraExtenso || null,
-    loteamento: input.loteamento.trim() || null,
-    area_numero: areaNumero,
-    area_extenso: areaNumero ? areaMetrosQuadradosPorExtenso(areaNumero) : null,
-    comarca: input.cartorioCidade.trim() || null,
+    loteamento: stripLoteamentoPrefix(input.loteamento) || null,
   };
 
   let imovelId = existingImovel?.id;
@@ -123,7 +108,7 @@ export async function updateCadastroImovel(input: CadastroImovelInput): Promise<
   await supabase.from("imovel_confrontacoes").delete().eq("imovel_id", imovelId);
 
   const confrontacoesValidas = input.confrontacoes.filter(
-    (c) => c.confrontante.trim() || c.medida.trim() || c.azimute.trim(),
+    (c) => c.direcao.trim() && (c.confrontante.trim() || c.medida.trim() || c.azimute.trim()),
   );
 
   if (confrontacoesValidas.length > 0) {
@@ -146,8 +131,6 @@ export async function updateCadastroImovel(input: CadastroImovelInput): Promise<
     .from("empreendimentos")
     .update({
       matricula: matriculaNumero || null,
-      lote: loteQuadra.lote || null,
-      quadra: loteQuadra.quadra || null,
     })
     .eq("id", input.empreendimentoId);
   if (empError) throw empError;

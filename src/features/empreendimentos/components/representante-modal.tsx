@@ -29,6 +29,7 @@ export function RepresentanteModal({
   titulo = "Representante legal",
   descricao = "Cadastre a qualificação completa para a abertura do Memorial de Incorporação.",
   salvando = false,
+  nomeSomenteLeitura = false,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -37,6 +38,7 @@ export function RepresentanteModal({
   titulo?: string;
   descricao?: string;
   salvando?: boolean;
+  nomeSomenteLeitura?: boolean;
 }) {
   const [form, setForm] = useState<Representante>(representante ?? REPRESENTANTE_VAZIO);
 
@@ -68,7 +70,13 @@ export function RepresentanteModal({
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Field label="Nome completo" className="md:col-span-2">
-                <Input value={form.nome} onChange={(e) => set("nome", e.target.value)} />
+                <Input
+                  value={form.nome}
+                  onChange={(e) => set("nome", e.target.value)}
+                  readOnly={nomeSomenteLeitura}
+                  tabIndex={nomeSomenteLeitura ? -1 : undefined}
+                  className={nomeSomenteLeitura ? "bg-muted/40 text-muted-foreground" : undefined}
+                />
               </Field>
               <Field label="CPF">
                 <Input

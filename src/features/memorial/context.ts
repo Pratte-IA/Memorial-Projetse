@@ -1,9 +1,25 @@
-import { fmtArea, fmtNum } from "@/lib/format";
+import {
+  fmtArea,
+  fmtNum,
+  formatDateBr,
+  normalizeLoteQuadraFields,
+  parseLoteQuadra,
+  stripLoteamentoPrefix,
+  ufPorExtenso,
+} from "@/lib/format";
 import {
   areaMetrosQuadradosPorExtenso,
   integerToPortuguese,
   matriculaPorExtenso,
 } from "@/lib/numero-extenso";
+import { formatConfrontacoesTexto } from "@/features/empreendimentos/constants/cadastro-complementar";
+import {
+  mapRepresentante,
+  mapSociosFromCampos,
+  resolveIncorporadoraEnderecoMemorial,
+  resolveSociosAdministradores,
+} from "@/features/empreendimentos/mappers";
+import { aggregateCondominioPavimentos } from "@/features/quadro-nbr/mapper";
 import { supabase } from "@/lib/supabase/client";
 
 import type { MemorialContextData } from "./types";
@@ -11,20 +27,6 @@ import type { MemorialContextData } from "./types";
 function dash(value: string | null | undefined): string {
   const trimmed = value?.trim();
   return trimmed ? trimmed : "—";
-}
-
-function formatEndereco(endereco: Record<string, unknown> | null): string {
-  if (!endereco) return "—";
-  const logradouro = String(endereco.logradouro ?? "");
-  const numero = String(endereco.numero ?? "");
-  if (logradouro && numero) return `${logradouro}, no ${numero}`;
-  return logradouro || numero || "—";
-}
-
-function formatDateBr(iso: string | null): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  return d.toLocaleDateString("pt-BR");
 }
 
 function countExtenso(value: number | null | undefined): string {
@@ -74,7 +76,7 @@ export async function fetchMemorialContext(empreendimentoId: number): Promise<Me
     .from("empreendimentos")
     .select(
       `
-      nome, cidade, uf, endereco, incorporadora_id,
+      nome, cidade, uf, endereco, lote, quadra, incorporadora_id,
       incorporadoras ( razao_social, cnpj, endereco ),
       dados_tecnicos (
         area_global, area_privativa_total, area_comum_total,
@@ -112,36 +114,46 @@ export async function fetchMemorialContext(empreendimentoId: number): Promise<Me
       art_rrt: string | null;
     } | null) ?? null;
 
-  let representante = {
-    nome: "—",
-    cpf: "—",
-    rg: "—",
-    estadoCivil: "—",
+  const incorporadoraId = emp.incorporadora_id as number | null;
+
+  const [{ data: sociosDados }, { data: repRows }] = await Promise.all([
+    supabase
+      .from("dados_extraidos")
+      .select("campo, valor")
+      .eq("empreendimento_id", empreendimentoId)
+      .like("campo", "incorporador_socio_%")
+      .order("campo"),
+    incorporadoraId
+      ? supabase
+          .from("representantes_legais")
+          .select("id, nome, cpf, rg, estado_civil, regime_comunhao, endereco")
+          .eq("incorporadora_id", incorporadoraId)
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+
+  const sociosQuadro = mapSociosFromCampos(sociosDados ?? []);
+  const repsFromDb = (repRows ?? []).map((row) =>
+    mapRepresentante({
+      id: row.id,
+      nome: row.nome,
+      cpf: row.cpf,
+      rg: row.rg,
+      estado_civil: row.estado_civil,
+      regime_comunhao: row.regime_comunhao,
+      endereco: row.endereco as Record<string, unknown> | null,
+    }),
+  );
+
+  const socios = resolveSociosAdministradores(repsFromDb, sociosQuadro);
+  const socioPrincipal = socios[0];
+  const representante = {
+    nome: dash(socioPrincipal?.nome),
+    cpf: dash(socioPrincipal?.cpf),
+    rg: dash(socioPrincipal?.rg),
+    estadoCivil: dash(socioPrincipal?.estadoCivil),
     profissao: "—",
     orgaoEmissor: "—",
   };
-
-  const incorporadoraId = emp.incorporadora_id as number | null;
-
-  if (incorporadoraId) {
-    const { data: rep } = await supabase
-      .from("representantes_legais")
-      .select("nome, cpf, rg, estado_civil")
-      .eq("incorporadora_id", incorporadoraId)
-      .limit(1)
-      .maybeSingle();
-
-    if (rep) {
-      representante = {
-        nome: rep.nome,
-        cpf: dash(rep.cpf),
-        rg: dash(rep.rg),
-        estadoCivil: dash(rep.estado_civil),
-        profissao: "—",
-        orgaoEmissor: "—",
-      };
-    }
-  }
 
   const { data: imovel } = await supabase
     .from("imoveis")
@@ -172,12 +184,14 @@ export async function fetchMemorialContext(empreendimentoId: number): Promise<Me
   const sudeste = confrontacao(confrontacoesRows, "sudeste");
   const sudoeste = confrontacao(confrontacoesRows, "sudoeste");
 
-  const confrontacoesTexto = confrontacoesRows
-    .map((c) => {
-      const az = c.azimute?.trim() ? ` e azimute ${c.azimute}` : "";
-      return `ao ${c.direcao}: com ${c.confrontante ?? "—"}, medindo ${c.medida ?? "—"}${az}`;
-    })
-    .join("; ");
+  const confrontacoesTexto = formatConfrontacoesTexto(
+    confrontacoesRows.map((c) => ({
+      direcao: c.direcao,
+      confrontante: c.confrontante ?? "",
+      medida: c.medida ?? "",
+      azimute: c.azimute ?? "",
+    })),
+  );
 
   const pavimentosRows = (
     (emp.condominio_pavimentos as Array<{
@@ -191,11 +205,19 @@ export async function fetchMemorialContext(empreendimentoId: number): Promise<Me
     (emp.condominio_espacos_comuns as Array<{ nome: string; ordem: number }> | null) ?? []
   ).sort((a, b) => a.ordem - b.ordem);
 
+  const pavimentosConsolidados = aggregateCondominioPavimentos(
+    pavimentosRows.map((p) => ({
+      nome: p.nome,
+      areaReal: p.area_real != null ? Number(p.area_real) : null,
+      ordem: p.ordem,
+    })),
+  );
+
   const areasPavimentos =
-    pavimentosRows.length > 0
-      ? pavimentosRows
+    pavimentosConsolidados.length > 0
+      ? pavimentosConsolidados
           .map((p) => {
-            const area = p.area_real != null ? fmtArea(Number(p.area_real)) : "—";
+            const area = p.areaReal != null && p.areaReal > 0 ? fmtArea(p.areaReal) : "—";
             return `${p.nome}, medindo ${area}`;
           })
           .join("; ")
@@ -209,6 +231,8 @@ export async function fetchMemorialContext(empreendimentoId: number): Promise<Me
     .select("campo, valor")
     .eq("empreendimento_id", empreendimentoId)
     .in("campo", [
+      "incorporador_endereco",
+      "projeto_lote_quadra",
       "custo_global_construcao_13",
       "custo_unitario_obra_14",
       "responsavel_obra_nome",
@@ -229,10 +253,28 @@ export async function fetchMemorialContext(empreendimentoId: number): Promise<Me
     ? Number(custoGlobalRaw.replace(/\./g, "").replace(",", "."))
     : NaN;
 
-  const enderecoInc = formatEndereco(incorporadora?.endereco ?? null);
-  const cidadeInc = String(incorporadora?.endereco?.cidade ?? emp.cidade ?? "—");
-  const ufInc = String(incorporadora?.endereco?.uf ?? emp.uf ?? "—");
-  const comarca = dash(imovel?.comarca ?? imovel?.cidade ?? emp.cidade);
+  const enderecoIncorporadora = resolveIncorporadoraEnderecoMemorial(
+    incorporadora?.endereco ?? null,
+    extraMap.get("incorporador_endereco"),
+    emp.cidade,
+    emp.uf,
+  );
+  const empRow = emp as { lote?: string | null; quadra?: string | null };
+  const loteQuadraRaw = extraMap.get("projeto_lote_quadra");
+  const loteQuadra = loteQuadraRaw
+    ? (() => {
+        const parsed = parseLoteQuadra(loteQuadraRaw);
+        return normalizeLoteQuadraFields(parsed.lote, parsed.quadra);
+      })()
+    : normalizeLoteQuadraFields(
+        imovel?.lote_numero ?? empRow.lote ?? "",
+        imovel?.quadra_numero ?? empRow.quadra ?? "",
+      );
+
+  const comarcaRaw = imovel?.comarca ?? imovel?.cidade ?? emp.cidade;
+  const comarca = comarcaRaw?.trim() ? comarcaRaw.trim().toUpperCase() : "—";
+  const ufSigla = String(imovel?.uf ?? emp.uf ?? "").trim().toUpperCase();
+  const ufExtenso = ufPorExtenso(ufSigla) || "—";
 
   const areaGlobal = areaPair(dados?.area_global != null ? Number(dados.area_global) : null);
   const areaPrivativa = areaPair(
@@ -249,14 +291,12 @@ export async function fetchMemorialContext(empreendimentoId: number): Promise<Me
       : matriculaPorExtenso(matriculaNumero) || "—";
 
   const cartorioBase = dash(imovel?.cartorio);
-  const cartorioCidade =
-    dash(extraMap.get("cartorio_cidade")) !== "—"
-      ? dash(extraMap.get("cartorio_cidade"))
-      : dash(imovel?.comarca);
-  const ufImovel = dash(imovel?.uf ?? emp.uf);
+  const cartorioCidadeRaw = extraMap.get("cartorio_cidade")?.trim();
+  const cartorioCidade = cartorioCidadeRaw ? cartorioCidadeRaw.toUpperCase() : "—";
+  const ufCartorio = ufSigla || "—";
   const cartorioTexto =
     cartorioBase !== "—" && cartorioCidade !== "—"
-      ? `${cartorioBase} desta cidade e comarca de ${cartorioCidade}${ufImovel !== "—" ? `-${ufImovel}` : ""}`
+      ? `${cartorioBase} da cidade e comarca de ${cartorioCidade}${ufCartorio !== "—" ? `/${ufCartorio}` : ""}`
       : cartorioBase;
 
   const torres = dados?.torres ?? null;
@@ -277,9 +317,9 @@ export async function fetchMemorialContext(empreendimentoId: number): Promise<Me
     incorporadora: {
       razaoSocial: dash(incorporadora?.razao_social),
       cnpj: dash(incorporadora?.cnpj),
-      endereco: enderecoInc,
-      cidade: cidadeInc,
-      uf: ufInc,
+      endereco: enderecoIncorporadora.endereco,
+      cidade: enderecoIncorporadora.cidade,
+      uf: enderecoIncorporadora.uf,
       certidao: "Certidão Simplificada da Junta Comercial",
       representante,
     },
@@ -312,13 +352,19 @@ export async function fetchMemorialContext(empreendimentoId: number): Promise<Me
       vagas: vagas != null ? String(vagas) : "—",
     },
     imovel: {
-      loteNumero: dash(imovel?.lote_numero),
-      loteNumeroExtenso: dash(imovel?.lote_extenso),
-      quadraNumero: dash(imovel?.quadra_numero),
-      quadraNumeroExtenso: dash(imovel?.quadra_extenso),
-      loteamento: dash(imovel?.loteamento),
+      loteNumero: loteQuadra.lote || "—",
+      loteNumeroExtenso: loteQuadra.loteExtenso || "—",
+      quadraNumero: loteQuadra.quadra || "—",
+      quadraNumeroExtenso: loteQuadra.quadraExtenso || "—",
+      loteamento: (() => {
+        const nome = imovel?.loteamento?.trim();
+        if (!nome) return "—";
+        return stripLoteamentoPrefix(nome) || "—";
+      })(),
+      comarca,
       cidade: dash(imovel?.cidade ?? emp.cidade),
-      uf: dash(imovel?.uf ?? emp.uf),
+      uf: ufSigla || "—",
+      ufExtenso,
       area:
         imovel?.area_numero != null ? fmtArea(Number(imovel.area_numero)) : "—",
       areaExtenso: dash(imovel?.area_extenso),
@@ -351,7 +397,7 @@ export async function fetchMemorialContext(empreendimentoId: number): Promise<Me
     },
     responsavelProjeto: {
       nome: dash(dados?.responsavel_tecnico),
-      formacao: "Engenheira Civil",
+      formacao: "Engenheiro(a) Civil",
       crea: dash(dados?.crea_cau),
       art: dash(dados?.art_rrt),
     },
@@ -359,7 +405,7 @@ export async function fetchMemorialContext(empreendimentoId: number): Promise<Me
       nome: dash(extraMap.get("responsavel_obra_nome")),
       formacao: dash(extraMap.get("responsavel_obra_formacao")) !== "—"
         ? dash(extraMap.get("responsavel_obra_formacao"))
-        : "Engenheiro Civil",
+        : "Engenheiro(a) Civil",
       crea: dash(extraMap.get("responsavel_obra_crea")),
       art: dash(extraMap.get("responsavel_obra_art")),
     },

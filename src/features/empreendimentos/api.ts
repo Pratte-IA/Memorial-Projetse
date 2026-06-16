@@ -23,6 +23,7 @@ import {
   mapRowToListItem,
   mapRowToView,
   mapSociosFromCampos,
+  resolveSociosAdministradores,
   type EmpreendimentoDetailRowWithJoins,
   type EmpreendimentoRowWithJoins,
 } from "./mappers";
@@ -287,10 +288,7 @@ export async function fetchEmpreendimentoDetail(id: number): Promise<Empreendime
       }
     }
 
-    if (
-      dado.campo === "incorporador_endereco" &&
-      (view.incorporadoraEndereco.endereco === "—" || !view.incorporadoraEndereco.endereco.trim())
-    ) {
+    if (dado.campo === "incorporador_endereco") {
       const texto = dado.valor?.trim();
       if (texto) view.incorporadoraEndereco.endereco = texto;
     }
@@ -298,18 +296,12 @@ export async function fetchEmpreendimentoDetail(id: number): Promise<Empreendime
     if (dado.campo === "projeto_lote_quadra" && dado.valor?.trim()) {
       const parsed = parseLoteQuadra(dado.valor);
       const normalized = normalizeLoteQuadraFields(parsed.lote, parsed.quadra);
-      const loteAtual = view.imovel.loteNumero;
-      const precisaNormalizar =
-        loteAtual === "—" || /quadra/i.test(loteAtual) || view.imovel.quadraNumero === "—";
-
-      if (precisaNormalizar) {
-        view.imovel.loteNumero = normalized.lote || "—";
-        view.imovel.quadraNumero = normalized.quadra || "—";
-        view.imovel.loteExtenso = normalized.loteExtenso || "—";
-        view.imovel.quadraExtenso = normalized.quadraExtenso || "—";
-        view.lote = normalized.lote || "—";
-        view.quadra = normalized.quadra || "—";
-      }
+      view.imovel.loteNumero = normalized.lote || "—";
+      view.imovel.quadraNumero = normalized.quadra || "—";
+      view.imovel.loteExtenso = normalized.loteExtenso || "—";
+      view.imovel.quadraExtenso = normalized.quadraExtenso || "—";
+      view.lote = normalized.lote || "—";
+      view.quadra = normalized.quadra || "—";
     }
 
     if (dado.campo === "projeto_alvara" && view.alvara === "—" && dado.valor?.trim()) {
@@ -376,19 +368,25 @@ export async function fetchEmpreendimentoDetail(id: number): Promise<Empreendime
     }
   }
 
-  if (view.representantes.length === 0) {
-    const { data: sociosDados } = await supabase
-      .from("dados_extraidos")
-      .select("campo, valor")
-      .eq("empreendimento_id", id)
-      .like("campo", "incorporador_socio_%")
-      .order("campo");
+  const { data: sociosDados } = await supabase
+    .from("dados_extraidos")
+    .select("campo, valor")
+    .eq("empreendimento_id", id)
+    .like("campo", "incorporador_socio_%")
+    .order("campo");
 
-    const socios = mapSociosFromCampos(sociosDados ?? []);
-    if (socios.length > 0) view.representantes = socios;
-  }
+  const sociosQuadro = mapSociosFromCampos(sociosDados ?? []);
+  view.representantes = resolveSociosAdministradores(view.representantes, sociosQuadro);
 
-  if (view.pavimentosAreas.length === 0) {
+  const rawPavimentos =
+    (data as EmpreendimentoDetailRowWithJoins).condominio_pavimentos ?? [];
+  const nomesPavimento = rawPavimentos.map((p) => p.nome.trim().toLowerCase());
+  const precisaResyncPavimentos =
+    rawPavimentos.length === 0 ||
+    rawPavimentos.some((p) => p.torre?.trim()) ||
+    new Set(nomesPavimento).size < nomesPavimento.length;
+
+  if (precisaResyncPavimentos) {
     try {
       const synced = await backfillCondominioComposicaoFromQuadro(id);
       if (synced) {
@@ -397,12 +395,6 @@ export async function fetchEmpreendimentoDetail(id: number): Promise<Empreendime
       }
     } catch (error) {
       console.warn("Falha ao sincronizar composição do condomínio a partir do quadro técnico:", error);
-    }
-  }
-
-  if (view.cartorioCidade === "—" || !view.cartorioCidade.trim()) {
-    if (view.imovel.comarca !== "—") {
-      view.cartorioCidade = view.imovel.comarca;
     }
   }
 
@@ -589,10 +581,12 @@ export async function createEmpreendimentoFromNbr(
             area_comum: u.areaComum,
             area_total: u.areaTotal,
             area_garden: u.areaGarden,
+            area_garagem: u.areaGaragem,
             vaga: u.vaga,
             fracao: u.fracao,
             confrontacoes: u.confrontacoes,
             observacoes: u.observacoes,
+            posicao: u.posicao,
             status: "validado",
           })),
         );

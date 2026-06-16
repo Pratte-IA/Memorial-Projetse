@@ -103,10 +103,12 @@ export async function persistDocumentoEdits(input: {
       area_comum: unidade.areaComum,
       area_total: unidade.areaTotal,
       area_garden: unidade.areaGarden,
+      area_garagem: unidade.areaGaragem,
       vaga: unidade.vaga,
       fracao: unidade.fracao,
       confrontacoes: unidade.confrontacoes,
       observacoes: unidade.observacoes,
+      posicao: unidade.posicao,
       status: "validado" as const,
       updated_at: now,
     };

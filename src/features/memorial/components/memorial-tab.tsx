@@ -15,7 +15,7 @@ import {
   agruparUnidadesPorTorrePavimento,
   gerarDescricaoUnidade,
 } from "@/features/unidades/utils/texto-unidade";
-import { CheckCircle2, FileText, Loader2, RefreshCw, Save, Sparkles } from "lucide-react";
+import { CheckCircle2, FileText, Loader2, Pencil, RefreshCw, Save, Sparkles, X } from "lucide-react";
 
 import { isUnidadesSection, formatSecaoSumarioNumero } from "../status";
 import type { SecaoRecord } from "../types";
@@ -48,6 +48,7 @@ export function MemorialTab({ empreendimentoId, empreendimentoNome }: MemorialTa
 
   const [secaoId, setSecaoId] = useState<number | null>(null);
   const [conteudoLocal, setConteudoLocal] = useState("");
+  const [modoEdicao, setModoEdicao] = useState(false);
 
   const secoes = memorial?.secoes ?? [];
   const secao = secoes.find((s) => s.id === secaoId) ?? secoes[0] ?? null;
@@ -59,7 +60,10 @@ export function MemorialTab({ empreendimentoId, empreendimentoNome }: MemorialTa
   }, [secoes, secaoId]);
 
   useEffect(() => {
-    if (secao) setConteudoLocal(secao.conteudo);
+    if (secao) {
+      setConteudoLocal(secao.conteudo);
+      setModoEdicao(false);
+    }
   }, [secao]);
 
   const inicializarMemorial = async () => {
@@ -87,6 +91,7 @@ export function MemorialTab({ empreendimentoId, empreendimentoNome }: MemorialTa
         profileId: profile.id,
       });
       setConteudoLocal(conteudo);
+      setModoEdicao(false);
       toast.success("Seção regenerada.");
     } catch {
       toast.error("Não foi possível regenerar a seção.");
@@ -104,6 +109,7 @@ export function MemorialTab({ empreendimentoId, empreendimentoNome }: MemorialTa
         titulo: secao.titulo,
         conteudo: conteudoLocal,
       });
+      setModoEdicao(false);
       toast.success("Seção salva.");
     } catch {
       toast.error("Não foi possível salvar.");
@@ -218,6 +224,11 @@ export function MemorialTab({ empreendimentoId, empreendimentoNome }: MemorialTa
 
   if (!secao) return null;
 
+  const cancelarEdicao = () => {
+    setConteudoLocal(secao.conteudo);
+    setModoEdicao(false);
+  };
+
   const isUnidades = isUnidadesSection(secao.titulo);
   const unidadesLista = unidades ?? [];
 
@@ -289,20 +300,44 @@ export function MemorialTab({ empreendimentoId, empreendimentoNome }: MemorialTa
                 )}
                 Regenerar
               </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="whitespace-nowrap"
-                disabled={saveMutation.isPending}
-                onClick={() => void salvar()}
-              >
-                {saveMutation.isPending ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Save className="h-3.5 w-3.5" />
-                )}
-                Salvar
-              </Button>
+              {modoEdicao ? (
+                <>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="whitespace-nowrap"
+                    disabled={saveMutation.isPending}
+                    onClick={cancelarEdicao}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    Cancelar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="whitespace-nowrap"
+                    disabled={saveMutation.isPending}
+                    onClick={() => void salvar()}
+                  >
+                    {saveMutation.isPending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Save className="h-3.5 w-3.5" />
+                    )}
+                    Salvar
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="whitespace-nowrap"
+                  onClick={() => setModoEdicao(true)}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  Editar
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant="outline"
@@ -334,12 +369,18 @@ export function MemorialTab({ empreendimentoId, empreendimentoNome }: MemorialTa
 
             {isUnidades ? (
               <div className="space-y-6">
-                <Textarea
-                  value={conteudoLocal}
-                  onChange={(e) => setConteudoLocal(e.target.value)}
-                  rows={3}
-                  className="text-sm leading-7"
-                />
+                {modoEdicao ? (
+                  <Textarea
+                    value={conteudoLocal}
+                    onChange={(e) => setConteudoLocal(e.target.value)}
+                    rows={3}
+                    className="text-sm leading-7"
+                  />
+                ) : (
+                  <p className="text-sm leading-7 text-foreground text-justify whitespace-pre-wrap">
+                    {conteudoLocal || "—"}
+                  </p>
+                )}
                 {unidadesLista.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Nenhuma unidade cadastrada.</p>
                 ) : (
@@ -369,7 +410,7 @@ export function MemorialTab({ empreendimentoId, empreendimentoNome }: MemorialTa
                   )
                 )}
               </div>
-            ) : secao.status === "nao_gerada" && !conteudoLocal ? (
+            ) : secao.status === "nao_gerada" && !conteudoLocal && !modoEdicao ? (
               <div className="text-center py-16 text-muted-foreground">
                 <FileText className="h-10 w-10 mx-auto mb-3 opacity-30" />
                 <div className="text-sm">Esta seção ainda não foi gerada.</div>
@@ -377,13 +418,17 @@ export function MemorialTab({ empreendimentoId, empreendimentoNome }: MemorialTa
                   <Sparkles className="h-3.5 w-3.5" /> Gerar seção
                 </Button>
               </div>
-            ) : (
+            ) : modoEdicao ? (
               <Textarea
                 value={conteudoLocal}
                 onChange={(e) => setConteudoLocal(e.target.value)}
                 rows={18}
                 className="text-sm leading-7 min-h-[480px] resize-y"
               />
+            ) : (
+              <div className="text-sm leading-7 text-foreground text-justify whitespace-pre-wrap min-h-[480px]">
+                {conteudoLocal || "—"}
+              </div>
             )}
           </div>
         </div>
@@ -411,6 +456,8 @@ export function MemorialTab({ empreendimentoId, empreendimentoNome }: MemorialTa
               <>
                 <DataRow label="Lote" value={context.imovel.loteNumero} />
                 <DataRow label="Quadra" value={context.imovel.quadraNumero} />
+                <DataRow label="Loteamento" value={context.imovel.loteamento} />
+                <DataRow label="Comarca" value={context.imovel.comarca} />
                 <DataRow label="Área" value={context.imovel.area} />
                 <DataRow label="Matrícula" value={context.imovel.matricula} />
                 <DataRow label="Cartório" value={context.imovel.cartorio} />

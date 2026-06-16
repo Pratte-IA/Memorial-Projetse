@@ -70,10 +70,22 @@ export async function fetchProntidaoExportacao(
   );
 
   const imovel = emp?.imovel;
+  const confrontacoesCompletas =
+    imovel?.confrontacoes.filter(
+      (c) =>
+        c.confrontante !== "—" &&
+        c.medida !== "—" &&
+        c.azimute !== "—" &&
+        c.direcao !== "—" &&
+        c.confrontante.trim() &&
+        c.medida.trim() &&
+        c.azimute.trim(),
+    ).length ?? 0;
+
   const imovelOk =
     imovel &&
     imovel.matriculaNumero !== "—" &&
-    imovel.confrontacoes.length >= 4 &&
+    confrontacoesCompletas > 0 &&
     imovel.areaNumero !== "—";
 
   itens.push(
@@ -85,9 +97,9 @@ export async function fetchProntidaoExportacao(
       descricao: "Matrícula, área do terreno e confrontações do lote matriculado.",
       status: imovelOk ? "ok" : imovel?.matriculaNumero !== "—" ? "atencao" : "bloqueante",
       detalhe: imovelOk
-        ? `${imovel.confrontacoes.length} confrontações cadastradas`
-        : imovel?.confrontacoes.length
-          ? `${imovel.confrontacoes.length}/4 confrontações — complete o cadastro`
+        ? `${confrontacoesCompletas} confrontação${confrontacoesCompletas > 1 ? "ões" : ""} cadastrada${confrontacoesCompletas > 1 ? "s" : ""}`
+        : confrontacoesCompletas > 0
+          ? `${confrontacoesCompletas} confrontação${confrontacoesCompletas > 1 ? "ões" : ""} — complete matrícula e demais campos`
           : "Imóvel ou confrontações não cadastrados",
     }),
   );

@@ -19,6 +19,8 @@ export type Representante = {
   bairro: string;
   cidade: string;
   estado: string;
+  /** Nome importado do quadro NBR — não editável manualmente. */
+  origemQuadro?: boolean;
 };
 
 export type IncorporadoraForm = {

@@ -22,15 +22,22 @@ type UnidadeRow = {
   area_comum: number | null;
   area_total: number | null;
   area_garden: number | null;
+  area_garagem: number | null;
   vaga: string | null;
   fracao: string | null;
   status: string;
   confrontacoes: string | null;
   observacoes: string | null;
+  posicao: string | null;
 };
 
 export function mapRowToUnidade(row: UnidadeRow): UnidadeRecord {
   const status = row.status as UnidadeDbStatus;
+  const garden = Number(row.area_garden ?? 0);
+  const garagem = Number(row.area_garagem ?? 0);
+  const areaTerrenoExclusiva =
+    garden > 0 && garagem > 0 ? garden + garagem : garagem > 0 ? garagem : garden;
+
   return {
     id: row.id,
     empreendimentoId: row.empreendimento_id,
@@ -41,13 +48,16 @@ export function mapRowToUnidade(row: UnidadeRow): UnidadeRecord {
     areaPrivativa: Number(row.area_privativa ?? 0),
     areaComum: Number(row.area_comum ?? 0),
     areaTotal: Number(row.area_total ?? 0),
-    garden: Number(row.area_garden ?? 0),
+    garden,
+    garagem,
+    areaTerrenoExclusiva,
     vaga: resolveVaga(row.vaga, row.observacoes),
     fracao: row.fracao ?? "—",
     status,
     statusLabel: getUnidadeStatusLabel(status),
     confrontacoes: row.confrontacoes ?? "",
     observacoes: row.observacoes ?? "",
+    posicao: row.posicao ?? "",
   };
 }
 

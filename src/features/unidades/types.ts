@@ -11,12 +11,15 @@ export interface UnidadeRecord {
   areaComum: number;
   areaTotal: number;
   garden: number;
+  garagem: number;
+  areaTerrenoExclusiva: number;
   vaga: string;
   fracao: string;
   status: UnidadeDbStatus;
   statusLabel: string;
   confrontacoes: string;
   observacoes: string;
+  posicao: string;
 }
 
 export interface UnidadesResumo {
@@ -40,6 +43,7 @@ export interface UpdateUnidadeInput {
     vaga?: string;
     fracao?: string;
     confrontacoes?: string;
+    posicao?: string;
     areaPrivativa?: number;
     areaComum?: number;
     areaTotal?: number;

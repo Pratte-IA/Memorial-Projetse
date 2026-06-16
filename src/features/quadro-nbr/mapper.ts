@@ -1,9 +1,18 @@
 import type { CreateEmpreendimentoInput } from "@/features/empreendimentos/types";
-import { fmtArea, formatBrDateDisplay, parseBrNumeric, parseLoteQuadra } from "@/lib/format";
+import { fmtArea, fmtNum, formatBrDateDisplay, parseBrNumeric, parseLoteQuadra } from "@/lib/format";
 
 import { buildQivbVagaLookup, buildUnidadeVagaLookupKeys, extractVaga, lookupVagaInfo, normalizeDesignacao } from "./extract-vaga";
+import { resolvePosicaoUnidadeFromDocumento } from "./resolve-posicao-unidade";
 import { CHAVE_VAGAS_TOTAL, parseQuantidadeVaga } from "./vaga-labels";
-import type { ConfrontacaoLabels, DocumentoNbrExtraido, QuadroExtraido } from "./types";
+import type {
+  ConfrontacaoLabels,
+  DocumentoNbrExtraido,
+  LinhaPavimento,
+  LinhaResumo,
+  LinhaUnidadeReal,
+  QuadroExtraido,
+  WithFormatDecimals,
+} from "./types";
 import { getQuadroById } from "./parser";
 
 function getCampoValor(documento: DocumentoNbrExtraido, chave: string): string {
@@ -235,7 +244,7 @@ export function mapDocumentoToWizardInput(
         matricula: "",
         cidade: cidadeUf.cidade,
         uf: cidadeUf.uf,
-        lote: lote || loteQuadraRaw,
+        lote,
         quadra,
         bairro: "",
       };
@@ -273,28 +282,117 @@ export interface UnidadeInsertPayload {
   areaComum: number | null;
   areaTotal: number | null;
   areaGarden: number | null;
+  areaGaragem: number | null;
+  areaTerrenoExclusivo: number | null;
   vaga: string | null;
   fracao: string | null;
   confrontacoes: string | null;
   observacoes: string | null;
+  posicao: string | null;
+}
+
+function decimalsForField(linha: WithFormatDecimals, field: string, fallback: number): number {
+  return linha.formatDecimals?.[field] ?? fallback;
+}
+
+function findQivbLinha(
+  qivb: DocumentoNbrExtraido["quadros"][number] | undefined,
+  designacao: string,
+  bloco: string | null,
+): LinhaUnidadeReal | undefined {
+  if (!qivb || qivb.id !== "qivb" || !("linhas" in qivb)) return undefined;
+  const normalized = normalizeDesignacao(designacao);
+  return qivb.linhas.find(
+    (linha) =>
+      normalizeDesignacao(linha.designacao) === normalized &&
+      (linha.bloco || "—") === (bloco || "—"),
+  );
+}
+
+/** Fração territorial para o memorial — Quadro Resumo (% + m²). */
+export function formatFracaoTerritorialTexto(linha: LinhaResumo): string | null {
+  const pct = linha.fracaoTerrenoPercentual;
+  const m2 = linha.fracaoTerrenoM2;
+
+  if (pct != null) {
+    const pctStr = fmtNum(pct, decimalsForField(linha, "fracaoTerrenoPercentual", 5));
+    if (m2 != null) {
+      const m2Str = fmtNum(m2, decimalsForField(linha, "fracaoTerrenoM2", 5));
+      return `${pctStr}%, equivalente a ${m2Str} m²`;
+    }
+    return `${pctStr}%`;
+  }
+
+  if (m2 != null) {
+    return `equivalente a ${fmtNum(m2, decimalsForField(linha, "fracaoTerrenoM2", 5))} m²`;
+  }
+
+  if (linha.fracaoPredial != null) {
+    return fmtNum(linha.fracaoPredial, decimalsForField(linha, "fracaoPredial", 5));
+  }
+
+  return null;
+}
+
+function resolveAreasTerrenoUnidade(
+  designacao: string,
+  linhaResumo: LinhaResumo | null,
+  refQivb: LinhaUnidadeReal | undefined,
+): Pick<UnidadeInsertPayload, "areaGarden" | "areaGaragem" | "areaTerrenoExclusivo"> {
+  const isGarden = /garden/i.test(designacao);
+  const terrenoExclusivo = refQivb?.areaTerrenoExclusivo ?? null;
+
+  const gardenCandidate =
+    (isGarden ? linhaResumo?.areaPrivativaAcessoria : null) ??
+    (isGarden ? refQivb?.areaPrivativaAcessoria : null);
+  const garden =
+    gardenCandidate != null && gardenCandidate > 0 ? gardenCandidate : isGarden ? null : null;
+
+  let garagem: number | null = null;
+  if (terrenoExclusivo != null && garden != null && garden > 0) {
+    garagem = Math.round((terrenoExclusivo - garden) * 100000) / 100000;
+  } else if (terrenoExclusivo != null) {
+    garagem = terrenoExclusivo;
+  }
+
+  const areaTerrenoExclusivo =
+    terrenoExclusivo ??
+    (garden != null && garagem != null ? Math.round((garden + garagem) * 100) / 100 : garagem);
+
+  return { areaGarden: garden, areaGaragem: garagem, areaTerrenoExclusivo };
+}
+
+function formatFracaoFromQivb(linha: LinhaUnidadeReal): string | null {
+  const pct = linha.coeficienteTerreno;
+  if (pct != null) {
+    return `${fmtNum(pct, decimalsForField(linha, "coeficienteTerreno", 5))}%`;
+  }
+  if (linha.coeficienteProporcionalidade != null) {
+    return fmtNum(
+      linha.coeficienteProporcionalidade,
+      decimalsForField(linha, "coeficienteProporcionalidade", 5),
+    );
+  }
+  return null;
 }
 
 export function mapDocumentoToUnidades(documento: DocumentoNbrExtraido): UnidadeInsertPayload[] {
   const resumo = getQuadroById(documento, "resumo");
   const qivb = getQuadroById(documento, "qivb");
   const vagaLookup = buildQivbVagaLookup(documento);
+  const resolvePosicao = (nome: string, torre: string) =>
+    resolvePosicaoUnidadeFromDocumento(documento, nome, torre);
 
   if (resumo?.linhas.length) {
     return resumo.linhas.map((linha) => {
-      const refQivb = qivb?.linhas.find(
-        (u) => normalizeDesignacao(u.designacao) === normalizeDesignacao(linha.designacao),
-      );
+      const refQivb = findQivbLinha(qivb, linha.designacao, linha.bloco || null);
       const { vaga, observacoes } = resolveVagaQuadro(
         vagaLookup,
         linha.designacao,
         refQivb?.observacoes ?? null,
         linha.bloco || refQivb?.bloco || null,
       );
+      const terreno = resolveAreasTerrenoUnidade(linha.designacao, linha, refQivb);
 
       return {
         nome: linha.designacao,
@@ -304,16 +402,12 @@ export function mapDocumentoToUnidades(documento: DocumentoNbrExtraido): Unidade
         areaPrivativa: linha.areaPrivativaPrincipal,
         areaComum: linha.areaComum,
         areaTotal: linha.areaTotal,
-        areaGarden: /garden/i.test(linha.designacao) ? linha.areaPrivativaAcessoria : null,
+        ...terreno,
         vaga,
-        fracao:
-          linha.fracaoTerrenoPercentual !== null
-            ? String(linha.fracaoTerrenoPercentual)
-            : linha.fracaoPredial !== null
-              ? String(linha.fracaoPredial)
-              : null,
+        fracao: formatFracaoTerritorialTexto(linha),
         confrontacoes: formatConfrontacoes(linha, resumo.confrontacaoLabels) || null,
         observacoes,
+        posicao: resolvePosicao(linha.designacao, linha.bloco || "—"),
       };
     });
   }
@@ -327,6 +421,7 @@ export function mapDocumentoToUnidades(documento: DocumentoNbrExtraido): Unidade
         linha.observacoes || null,
         linha.bloco || null,
       );
+      const terreno = resolveAreasTerrenoUnidade(linha.designacao, null, linha);
 
       return {
         nome: linha.designacao,
@@ -336,14 +431,12 @@ export function mapDocumentoToUnidades(documento: DocumentoNbrExtraido): Unidade
         areaPrivativa: linha.areaPrivativaPrincipal,
         areaComum: linha.areaUsoComum,
         areaTotal: linha.areaRealTotal,
-        areaGarden: /garden/i.test(linha.designacao) ? linha.areaPrivativaAcessoria : null,
+        ...terreno,
         vaga,
-        fracao:
-          linha.coeficienteProporcionalidade !== null
-            ? String(linha.coeficienteProporcionalidade)
-            : null,
+        fracao: formatFracaoFromQivb(linha),
         confrontacoes: null,
         observacoes,
+        posicao: resolvePosicao(linha.designacao, linha.bloco || "—"),
       };
     });
 }
@@ -483,33 +576,120 @@ export interface CondominioEspacoComumInsertPayload {
   fonteQuadro: "qviii";
 }
 
-/** Áreas por pavimento — preferência QCOMP (multi-torre) quando tiver dados úteis; fallback QI. */
+function normalizarNomePavimento(nome: string): string {
+  return nome.trim().toLowerCase();
+}
+
+function linhasPavimentoToCondominioPayload(
+  linhas: LinhaPavimento[],
+  fonteQuadro: "qi" | "qcomp",
+  aggregateByNome: boolean,
+): CondominioPavimentoInsertPayload[] {
+  const filtered = linhas.filter((linha) => linha.pavimento.trim());
+
+  if (!aggregateByNome) {
+    return filtered.map((linha, ordem) => ({
+      torre: linha.torre?.trim() || null,
+      nome: linha.pavimento.trim(),
+      areaReal: linha.areaPavimentoReal,
+      areaEquivalente: linha.areaPavimentoEquivalente,
+      ordem,
+      fonteQuadro,
+    }));
+  }
+
+  const byNome = new Map<
+    string,
+    CondominioPavimentoInsertPayload & { ordemPrimeiraOcorrencia: number }
+  >();
+
+  for (const [index, linha] of filtered.entries()) {
+    const nome = linha.pavimento.trim();
+    const key = normalizarNomePavimento(nome);
+    const existing = byNome.get(key);
+
+    if (existing) {
+      if (linha.areaPavimentoReal != null) {
+        existing.areaReal = (existing.areaReal ?? 0) + linha.areaPavimentoReal;
+      }
+      if (linha.areaPavimentoEquivalente != null) {
+        existing.areaEquivalente =
+          (existing.areaEquivalente ?? 0) + linha.areaPavimentoEquivalente;
+      }
+      continue;
+    }
+
+    byNome.set(key, {
+      torre: null,
+      nome,
+      areaReal: linha.areaPavimentoReal,
+      areaEquivalente: linha.areaPavimentoEquivalente,
+      ordem: byNome.size,
+      fonteQuadro,
+      ordemPrimeiraOcorrencia: index,
+    });
+  }
+
+  return [...byNome.values()]
+    .sort((a, b) => a.ordemPrimeiraOcorrencia - b.ordemPrimeiraOcorrencia)
+    .map(({ ordemPrimeiraOcorrencia: _, ...payload }, ordem) => ({ ...payload, ordem }));
+}
+
+/** Consolida pavimentos repetidos (ex.: QCOMP por torre) em totais do condomínio. */
+export function aggregateCondominioPavimentos<
+  T extends { nome: string; areaReal: number | null; ordem: number },
+>(pavimentos: T[]): T[] {
+  const byNome = new Map<string, T & { ordemPrimeiraOcorrencia: number }>();
+
+  for (const [index, pavimento] of pavimentos.entries()) {
+    const nome = pavimento.nome.trim();
+    if (!nome) continue;
+
+    const key = normalizarNomePavimento(nome);
+    const existing = byNome.get(key);
+
+    if (existing) {
+      if (pavimento.areaReal != null) {
+        existing.areaReal = ((existing.areaReal ?? 0) + pavimento.areaReal) as T["areaReal"];
+      }
+      continue;
+    }
+
+    byNome.set(key, { ...pavimento, nome, ordemPrimeiraOcorrencia: index });
+  }
+
+  return [...byNome.values()]
+    .sort((a, b) => a.ordemPrimeiraOcorrencia - b.ordemPrimeiraOcorrencia)
+    .map((item, ordem) => {
+      const { ordemPrimeiraOcorrencia: _, ...payload } = item;
+      return { ...payload, ordem } as unknown as T;
+    });
+}
+
+/** Áreas por pavimento — Quadro I (item 17) tem totais do condomínio; QCOMP só como fallback agregado. */
 export function mapDocumentoToCondominioPavimentos(
   documento: DocumentoNbrExtraido,
 ): CondominioPavimentoInsertPayload[] {
   const qcomp = getQuadroById(documento, "qcomp");
   const qi = getQuadroById(documento, "qi");
 
-  const fonte = quadroTemPavimentosUtil(qcomp)
-    ? qcomp
-    : quadroTemPavimentosUtil(qi)
-      ? qi
-      : qcomp?.linhas.length
-        ? qcomp
-        : qi;
+  if (quadroTemPavimentosUtil(qi) && qi) {
+    return linhasPavimentoToCondominioPayload(qi.linhas, "qi", false);
+  }
 
-  if (!fonte?.linhas.length) return [];
+  if (quadroTemPavimentosUtil(qcomp) && qcomp) {
+    return linhasPavimentoToCondominioPayload(qcomp.linhas, "qcomp", true);
+  }
 
-  return fonte.linhas
-    .filter((linha) => linha.pavimento.trim())
-    .map((linha, ordem) => ({
-      torre: linha.torre?.trim() || null,
-      nome: linha.pavimento.trim(),
-      areaReal: linha.areaPavimentoReal,
-      areaEquivalente: linha.areaPavimentoEquivalente,
-      ordem,
-      fonteQuadro: fonte.id as "qi" | "qcomp",
-    }));
+  if (qi?.linhas.length) {
+    return linhasPavimentoToCondominioPayload(qi.linhas, "qi", false);
+  }
+
+  if (qcomp?.linhas.length) {
+    return linhasPavimentoToCondominioPayload(qcomp.linhas, "qcomp", true);
+  }
+
+  return [];
 }
 
 function quadroTemPavimentosUtil(

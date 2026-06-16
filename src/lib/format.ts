@@ -43,45 +43,89 @@ function isEmptyField(value: string): boolean {
   return !trimmed || trimmed === "—";
 }
 
+/** Remove prefixo "Loteamento" quando o template já inclui a palavra (ex.: "LOTEAMENTO ABC" → "ABC"). */
+export function stripLoteamentoPrefix(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "—") return trimmed;
+  return trimmed.replace(/^loteamento\s+/i, "").trim();
+}
+
 /** Separa texto combinado do NBR (ex.: "Lote 12-A, Quadra 0503") em lote e quadra. */
+export function sanitizeLoteQuadraIdentificador(value: string): string {
+  let text = stripLoteQuadraPrefix(value.trim());
+  if (!text) return "";
+
+  const commaParts = text.split(",").map((p) => p.trim());
+  if (commaParts.length > 1) {
+    const resto = commaParts.slice(1).join(", ");
+    if (/[/-]/.test(resto) || /\b[A-Z]{2}\b/.test(resto)) {
+      text = commaParts[0]!;
+    }
+  }
+
+  const idMatch = text.match(/^(\d+[A-Za-z0-9-]*)/);
+  if (idMatch) return idMatch[1]!;
+
+  const firstToken = text.split(/\s+/)[0];
+  return firstToken ?? text;
+}
+
+/** Separa texto combinado do NBR (ex.: "Lote 13, Quadra 04, Interlagos - Cascavel/PR") em lote e quadra. */
 export function parseLoteQuadra(raw: string): { lote: string; quadra: string } {
   const trimmed = raw.trim();
   if (!trimmed) return { lote: "", quadra: "" };
 
-  const match = trimmed.match(/^lote\s*(?:n[º°]?\s*)?([^,]+?)(?:,\s*quadra\s*(?:n[º°]?\s*)?(.+))?$/i);
-  if (match) {
+  const structured = trimmed.match(
+    /^lote\s*(?:n[º°]?\s*)?([^,]+?)(?:,\s*quadra\s*(?:n[º°]?\s*)?([^,]+))?(?:,\s*.+)?$/i,
+  );
+  if (structured) {
     return {
-      lote: stripLoteQuadraPrefix(match[1]),
-      quadra: stripLoteQuadraPrefix(match[2] ?? ""),
+      lote: sanitizeLoteQuadraIdentificador(structured[1]),
+      quadra: sanitizeLoteQuadraIdentificador(structured[2] ?? ""),
     };
   }
 
-  return { lote: stripLoteQuadraPrefix(trimmed), quadra: "" };
+  const loteMatch = trimmed.match(/lote\s*(?:n[º°]?\s*)?([^,/]+)/i);
+  const quadraMatch = trimmed.match(/quadra\s*(?:n[º°]?\s*)?([^,/]+)/i);
+  if (loteMatch || quadraMatch) {
+    return {
+      lote: sanitizeLoteQuadraIdentificador(loteMatch?.[1] ?? ""),
+      quadra: sanitizeLoteQuadraIdentificador(quadraMatch?.[1] ?? ""),
+    };
+  }
+
+  return { lote: sanitizeLoteQuadraIdentificador(trimmed), quadra: "" };
 }
 
 /** Normaliza lote/quadra separados e gera por extenso quando ausente no banco. */
 export function normalizeLoteQuadraFields(
   loteRaw: string,
   quadraRaw: string,
-  loteExtensoRaw?: string | null,
-  quadraExtensoRaw?: string | null,
+  _loteExtensoRaw?: string | null,
+  _quadraExtensoRaw?: string | null,
 ): {
   lote: string;
   quadra: string;
   loteExtenso: string;
   quadraExtenso: string;
 } {
-  let lote = stripLoteQuadraPrefix(loteRaw);
-  let quadra = stripLoteQuadraPrefix(quadraRaw);
+  let lote = sanitizeLoteQuadraIdentificador(loteRaw);
+  let quadra = sanitizeLoteQuadraIdentificador(quadraRaw);
 
-  if (!quadra && (/^lote\s/i.test(loteRaw.trim()) || /quadra/i.test(loteRaw))) {
+  if ((!lote || !quadra) && (/^lote\s/i.test(loteRaw.trim()) || /quadra/i.test(loteRaw))) {
     const parsed = parseLoteQuadra(loteRaw);
-    lote = parsed.lote;
-    quadra = parsed.quadra;
+    if (parsed.lote) lote = parsed.lote;
+    if (parsed.quadra) quadra = parsed.quadra;
   }
 
-  const loteExtenso = loteExtensoRaw?.trim() || (lote ? loteQuadraPorExtenso(lote) : "");
-  const quadraExtenso = quadraExtensoRaw?.trim() || (quadra ? loteQuadraPorExtenso(quadra) : "");
+  if ((!lote || !quadra) && /lote|quadra/i.test(quadraRaw)) {
+    const parsed = parseLoteQuadra(quadraRaw);
+    if (parsed.lote) lote = parsed.lote;
+    if (parsed.quadra) quadra = parsed.quadra;
+  }
+
+  const loteExtenso = lote ? loteQuadraPorExtenso(lote) : "";
+  const quadraExtenso = quadra ? loteQuadraPorExtenso(quadra) : "";
 
   return { lote, quadra, loteExtenso, quadraExtenso };
 }
@@ -201,6 +245,35 @@ export function formatBrDateDisplay(value: string): string {
   if (!parsed) return value;
   const { day, month, year } = parsed;
   return `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}`;
+}
+
+/**
+ * Formata data para exibição DD/MM/AAAA.
+ * Datas civis ISO (yyyy-mm-dd) não passam por `Date`, evitando D-1 em fusos como America/Sao_Paulo.
+ */
+export function formatDateBr(value: string | null | undefined): string {
+  const trimmed = value?.trim();
+  if (!trimmed) return "—";
+
+  if (/^\d{4}-\d{2}-\d{2}(?:T|$)/.test(trimmed)) {
+    return formatBrDateDisplay(trimmed);
+  }
+
+  const parsed = parseFlexibleDate(trimmed);
+  if (parsed) {
+    const { day, month, year } = parsed;
+    return `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}`;
+  }
+
+  try {
+    return new Intl.DateTimeFormat("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).format(new Date(trimmed));
+  } catch {
+    return "—";
+  }
 }
 
 /** Máscara de digitação DD/MM/AAAA. */

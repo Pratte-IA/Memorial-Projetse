@@ -2,9 +2,15 @@ import { supabase } from "@/lib/supabase/client";
 import type { Json } from "@/lib/supabase/types";
 
 import {
+  backfillUnidadesMedidasFromDocumento,
+  backfillUnidadesPosicaoFromDocumento,
   backfillUnidadesVagasFromDocumento,
   loadLatestQuadroDocumento,
 } from "@/features/empreendimentos/sync-unidades-vagas-from-quadro";
+import {
+  collectExplicitacoesFromDadosExtraidos,
+  resolvePosicaoFromExplicitacoes,
+} from "@/features/quadro-nbr/resolve-posicao-unidade";
 import {
   loadVagaLookupForEmpreendimento,
   resolveVagaFromLookup,
@@ -13,6 +19,26 @@ import {
 import { computeResumo, mapRowToUnidade } from "./mappers";
 import { updateUnidadeSchema } from "./schemas";
 import type { UnidadeDbStatus, UnidadeRecord, UnidadesResumo, UpdateUnidadeInput } from "./types";
+
+function enrichUnidadesPosicao(
+  unidades: UnidadeRecord[],
+  explicitacoes: string[],
+): UnidadeRecord[] {
+  if (!explicitacoes.length) return unidades;
+
+  return unidades.map((unidade) => {
+    if (unidade.posicao.trim()) return unidade;
+
+    const posicao = resolvePosicaoFromExplicitacoes(
+      explicitacoes,
+      unidade.nome,
+      unidade.torre,
+    );
+    if (!posicao) return unidade;
+
+    return { ...unidade, posicao };
+  });
+}
 
 function enrichUnidadesFromQuadroLookup(
   unidades: UnidadeRecord[],
@@ -68,34 +94,58 @@ export async function fetchUnidades(empreendimentoId: number): Promise<UnidadeRe
   let rows = data ?? [];
   let unidades = rows.map(mapRowToUnidade);
 
-  if (unidades.some((u) => u.vaga === "—")) {
-    try {
-      const lookup = await loadVagaLookupForEmpreendimento(empreendimentoId);
-      if (lookup.size > 0) {
-        unidades = enrichUnidadesFromQuadroLookup(unidades, lookup);
+  try {
+    const lookup = await loadVagaLookupForEmpreendimento(empreendimentoId);
+    if (lookup.size > 0) {
+      unidades = enrichUnidadesFromQuadroLookup(unidades, lookup);
+    }
+
+    const documento = await loadLatestQuadroDocumento(empreendimentoId);
+    if (documento) {
+      let changed = false;
+
+      if (unidades.some((u) => u.vaga === "—")) {
+        changed =
+          (await backfillUnidadesVagasFromDocumento(empreendimentoId, documento)) > 0 || changed;
       }
 
-      const documento = await loadLatestQuadroDocumento(empreendimentoId);
-      if (documento) {
-        const atualizadas = await backfillUnidadesVagasFromDocumento(empreendimentoId, documento);
-        if (atualizadas > 0) {
-          const { data: refreshed, error: refreshError } = await supabase
-            .from("unidades_autonomas")
-            .select("*")
-            .eq("empreendimento_id", empreendimentoId)
-            .order("torre")
-            .order("pavimento")
-            .order("nome");
+      changed =
+        (await backfillUnidadesMedidasFromDocumento(empreendimentoId, documento)) > 0 || changed;
 
-          if (refreshError) throw refreshError;
-          rows = refreshed ?? [];
-          unidades = rows.map(mapRowToUnidade);
+      changed =
+        (await backfillUnidadesPosicaoFromDocumento(empreendimentoId, documento)) > 0 || changed;
+
+      if (changed) {
+        const { data: refreshed, error: refreshError } = await supabase
+          .from("unidades_autonomas")
+          .select("*")
+          .eq("empreendimento_id", empreendimentoId)
+          .order("torre")
+          .order("pavimento")
+          .order("nome");
+
+        if (refreshError) throw refreshError;
+        rows = refreshed ?? [];
+        unidades = rows.map(mapRowToUnidade);
+        if (lookup.size > 0) {
           unidades = enrichUnidadesFromQuadroLookup(unidades, lookup);
         }
       }
-    } catch (syncError) {
-      console.warn("Falha ao sincronizar vagas a partir do quadro técnico:", syncError);
     }
+
+    const { data: qvDados } = await supabase
+      .from("dados_extraidos")
+      .select("bloco, campo, valor")
+      .eq("empreendimento_id", empreendimentoId)
+      .eq("bloco", "qv")
+      .like("campo", "explicitacao_%");
+
+    const explicitacoes = collectExplicitacoesFromDadosExtraidos(qvDados ?? []);
+    if (explicitacoes.length > 0) {
+      unidades = enrichUnidadesPosicao(unidades, explicitacoes);
+    }
+  } catch (syncError) {
+    console.warn("Falha ao sincronizar unidades a partir do quadro técnico:", syncError);
   }
 
   return unidades;
@@ -115,6 +165,7 @@ export async function updateUnidade(input: UpdateUnidadeInput): Promise<void> {
     vaga: input.patch.vaga,
     fracao: input.patch.fracao,
     confrontacoes: input.patch.confrontacoes,
+    posicao: input.patch.posicao,
     areaPrivativa: input.patch.areaPrivativa,
     areaComum: input.patch.areaComum,
     areaTotal: input.patch.areaTotal,
@@ -137,6 +188,7 @@ export async function updateUnidade(input: UpdateUnidadeInput): Promise<void> {
       vaga: v.vaga,
       fracao: v.fracao,
       confrontacoes: v.confrontacoes,
+      posicao: v.posicao ?? null,
       area_privativa: v.areaPrivativa,
       area_comum: v.areaComum,
       area_total: v.areaTotal,

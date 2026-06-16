@@ -43,6 +43,7 @@ export function UnidadeDrawer({
     areaTotal: fmtNum(unidade.areaTotal, 3),
     areaGarden: fmtNum(unidade.garden, 2),
     confrontacoes: unidade.confrontacoes,
+    posicao: unidade.posicao,
   });
 
   useEffect(() => {
@@ -58,6 +59,7 @@ export function UnidadeDrawer({
       areaTotal: fmtNum(unidade.areaTotal, 3),
       areaGarden: fmtNum(unidade.garden, 2),
       confrontacoes: unidade.confrontacoes,
+      posicao: unidade.posicao,
     });
   }, [unidade]);
 
@@ -74,6 +76,7 @@ export function UnidadeDrawer({
     areaTotal: parseAreaInput(form.areaTotal) ?? unidade.areaTotal,
     garden: parseAreaInput(form.areaGarden) ?? unidade.garden,
     confrontacoes: form.confrontacoes,
+    posicao: form.posicao,
   };
 
   const salvar = async () => {
@@ -103,6 +106,7 @@ export function UnidadeDrawer({
           vaga: form.vaga,
           fracao: form.fracao,
           confrontacoes: form.confrontacoes,
+          posicao: form.posicao,
           areaPrivativa,
           areaComum,
           areaTotal,
@@ -203,6 +207,15 @@ export function UnidadeDrawer({
               value={form.confrontacoes}
               onChange={(e) => set("confrontacoes", e.target.value)}
               rows={3}
+            />
+          </Field2>
+
+          <Field2 label="Posição na torre">
+            <Textarea
+              value={form.posicao}
+              onChange={(e) => set("posicao", e.target.value)}
+              rows={3}
+              placeholder="Ex.: sendo o apartamento da frente e do lado esquerdo da torre..."
             />
           </Field2>
 

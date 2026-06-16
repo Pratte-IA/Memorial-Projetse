@@ -8,6 +8,7 @@ export const updateUnidadeSchema = z.object({
   vaga: z.string().trim().min(1, "Vaga é obrigatória."),
   fracao: z.string().trim().min(1, "Fração territorial é obrigatória."),
   confrontacoes: z.string().trim().min(10, "Descreva as confrontações."),
+  posicao: z.string().trim().optional(),
   areaPrivativa: z.number().positive("Área privativa deve ser maior que zero."),
   areaComum: z.number().nonnegative("Área comum inválida."),
   areaTotal: z.number().positive("Área total deve ser maior que zero."),

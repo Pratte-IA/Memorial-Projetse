@@ -5,6 +5,13 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   AlertTriangle,
   HardHat,
   MapPin,
@@ -19,12 +26,15 @@ import { useAuth } from "@/features/auth/use-auth";
 
 import { REPRESENTANTE_VAZIO } from "../constants/detail-mocks";
 import {
-  DIRECOES_CONFRONTACAO,
-  confrontacoesVazias,
-  normalizarConfrontacoes,
+  confrontacaoItemEstaCompleta,
+  confrontacoesFromView,
+  criarConfrontacaoVazia,
+  labelDirecaoConfrontacao,
+  OPCOES_DIRECAO_CONFRONTACAO,
+  type ConfrontacaoItem,
 } from "../constants/cadastro-complementar";
 import type { EmpreendimentoView } from "../types";
-import type { Confrontacao, Representante, ResponsabilidadeObraForm } from "../types/detail-types";
+import type { Representante, ResponsabilidadeObraForm } from "../types/detail-types";
 import {
   useDeleteRepresentanteLegal,
   useSaveRepresentanteLegal,
@@ -39,21 +49,18 @@ function dashToEmpty(value: string): string {
   return value === "—" ? "" : value;
 }
 
+function sociosFromEmp(emp: EmpreendimentoView): Representante[] {
+  return emp.representantes;
+}
+
 function imovelFormFromEmp(emp: EmpreendimentoView) {
   const imovel = emp.imovel;
   return {
     matriculaNumero: dashToEmpty(imovel.matriculaNumero !== "—" ? imovel.matriculaNumero : emp.matricula),
     cartorio: dashToEmpty(imovel.cartorio),
-    cartorioCidade: dashToEmpty(
-      emp.cartorioCidade || (imovel.comarca !== "—" ? imovel.comarca : ""),
-    ),
-    loteNumero: dashToEmpty(imovel.loteNumero !== "—" ? imovel.loteNumero : emp.lote),
-    area: dashToEmpty(imovel.areaNumero),
-    quadra: dashToEmpty(imovel.quadraNumero !== "—" ? imovel.quadraNumero : emp.quadra),
+    cartorioCidade: dashToEmpty(emp.cartorioCidade),
     loteamento: dashToEmpty(imovel.loteamento),
-    confrontacoes: normalizarConfrontacoes(
-      imovel.confrontacoes.length > 0 ? imovel.confrontacoes : confrontacoesVazias(),
-    ),
+    confrontacoes: confrontacoesFromView(imovel.confrontacoes),
   };
 }
 
@@ -74,7 +81,7 @@ export function VisaoGeralTab({ emp }: { emp: EmpreendimentoView }) {
 
   const [imovelForm, setImovelForm] = useState(imovelFormFromEmp(emp));
   const [responsabilidade, setResponsabilidade] = useState(responsabilidadeFromEmp(emp));
-  const [representantes, setRepresentantes] = useState<Representante[]>(emp.representantes);
+  const [representantes, setRepresentantes] = useState<Representante[]>(sociosFromEmp(emp));
 
   const [editando, setEditando] = useState<Representante | null>(null);
   const [modalAberto, setModalAberto] = useState(false);
@@ -87,18 +94,33 @@ export function VisaoGeralTab({ emp }: { emp: EmpreendimentoView }) {
   useEffect(() => {
     setImovelForm(imovelFormFromEmp(emp));
     setResponsabilidade(responsabilidadeFromEmp(emp));
-    setRepresentantes(emp.representantes);
+    setRepresentantes(sociosFromEmp(emp));
   }, [emp]);
 
   const setImovel = <K extends keyof typeof imovelForm>(key: K, value: (typeof imovelForm)[K]) =>
     setImovelForm((prev) => ({ ...prev, [key]: value }));
 
-  const setConfrontacao = (index: number, patch: Partial<Confrontacao>) => {
-    setImovelForm((prev) => {
-      const confrontacoes = [...prev.confrontacoes];
-      confrontacoes[index] = { ...confrontacoes[index], ...patch };
-      return { ...prev, confrontacoes };
-    });
+  const setConfrontacao = (formId: string, patch: Partial<ConfrontacaoItem>) => {
+    setImovelForm((prev) => ({
+      ...prev,
+      confrontacoes: prev.confrontacoes.map((c) =>
+        c.formId === formId ? { ...c, ...patch } : c,
+      ),
+    }));
+  };
+
+  const adicionarConfrontacao = () => {
+    setImovelForm((prev) => ({
+      ...prev,
+      confrontacoes: [...prev.confrontacoes, criarConfrontacaoVazia()],
+    }));
+  };
+
+  const removerConfrontacao = (formId: string) => {
+    setImovelForm((prev) => ({
+      ...prev,
+      confrontacoes: prev.confrontacoes.filter((c) => c.formId !== formId),
+    }));
   };
 
   const setResp = <K extends keyof ResponsabilidadeObraForm>(
@@ -107,7 +129,7 @@ export function VisaoGeralTab({ emp }: { emp: EmpreendimentoView }) {
   ) => setResponsabilidade((prev) => ({ ...prev, [key]: value }));
 
   const abrirNovo = () => {
-    setEditando({ ...REPRESENTANTE_VAZIO, id: `rep-${Date.now()}` });
+    setEditando({ ...REPRESENTANTE_VAZIO, id: `rep-${Date.now()}`, origemQuadro: false });
     setModalAberto(true);
   };
 
@@ -116,8 +138,10 @@ export function VisaoGeralTab({ emp }: { emp: EmpreendimentoView }) {
     setModalAberto(true);
   };
 
+  const podeRemover = (r: Representante) => !r.origemQuadro;
+
   const remover = async (r: Representante) => {
-    if (!membership || empreendimentoId <= 0) return;
+    if (!membership || empreendimentoId <= 0 || !podeRemover(r)) return;
 
     try {
       if (/^\d+$/.test(r.id)) {
@@ -125,14 +149,14 @@ export function VisaoGeralTab({ emp }: { emp: EmpreendimentoView }) {
           organizationId: membership.organization_id,
           empreendimentoId,
           representanteId: r.id,
-          nome: r.nome || "Representante",
+          nome: r.nome || "Sócio",
         });
       }
       setRepresentantes((arr) => arr.filter((x) => x.id !== r.id));
       await router.invalidate();
-      toast.success("Sócio administrador removido.");
+      toast.success("Sócio removido.");
     } catch {
-      toast.error("Não foi possível remover o sócio administrador.");
+      toast.error("Não foi possível remover o sócio.");
     }
   };
 
@@ -184,7 +208,11 @@ export function VisaoGeralTab({ emp }: { emp: EmpreendimentoView }) {
       await updateImovelMutation.mutateAsync({
         organizationId: membership.organization_id,
         empreendimentoId,
-        ...imovelForm,
+        matriculaNumero: imovelForm.matriculaNumero,
+        cartorio: imovelForm.cartorio,
+        cartorioCidade: imovelForm.cartorioCidade,
+        loteamento: imovelForm.loteamento,
+        confrontacoes: imovelForm.confrontacoes.map(({ formId: _id, ...c }) => c),
       });
       await router.invalidate();
       toast.success("Dados do imóvel salvos.");
@@ -220,33 +248,31 @@ export function VisaoGeralTab({ emp }: { emp: EmpreendimentoView }) {
   if (!imovelForm.cartorio.trim()) {
     pendenciasJuridicas.push({ tone: "atencao", texto: "Cartório de registro não informado" });
   }
-  if (!imovelForm.loteNumero.trim() || !imovelForm.quadra.trim() || !imovelForm.loteamento.trim()) {
+  if (!imovelForm.loteamento.trim()) {
     pendenciasJuridicas.push({
       tone: "atencao",
-      texto: "Lote, quadra ou loteamento incompletos para a Cláusula Primeira",
+      texto: "Loteamento não informado para a Cláusula Primeira",
     });
   }
-  const confrontacoesPreenchidas = imovelForm.confrontacoes.filter(
-    (c) => c.confrontante.trim() && c.medida.trim() && c.azimute.trim(),
-  ).length;
-  if (confrontacoesPreenchidas < 4) {
+  const confrontacoesCompletas = imovelForm.confrontacoes.filter(confrontacaoItemEstaCompleta).length;
+  if (confrontacoesCompletas === 0) {
     pendenciasJuridicas.push({
       tone: "atencao",
-      texto: `${confrontacoesPreenchidas}/4 confrontações completas`,
+      texto: "Nenhuma confrontação completa cadastrada",
     });
   }
 
   representantes.forEach((r) => {
-    if (!r.cpf) {
+    if (!r.cpf?.trim()) {
       pendenciasJuridicas.push({
         tone: "alerta",
-        texto: `${r.nome || "Sócio administrador"} sem CPF`,
+        texto: `${r.nome?.trim() || "Sócio administrador"} sem CPF`,
       });
     }
     if (r.estadoCivil === "Casado(a)" && !r.regimeComunhao) {
       pendenciasJuridicas.push({
         tone: "atencao",
-        texto: `${r.nome || "Sócio administrador"} sem regime de bens`,
+        texto: `${r.nome?.trim() || "Sócio administrador"} sem regime de bens`,
       });
     }
   });
@@ -269,7 +295,8 @@ export function VisaoGeralTab({ emp }: { emp: EmpreendimentoView }) {
             <div>
               <SectionTitle icon={MapPin}>Propriedade e localização do imóvel</SectionTitle>
               <p className="text-xs text-muted-foreground mt-1">
-                Dados manuais para a Cláusula Primeira — não disponíveis completamente no quadro NBR.
+                Apenas dados que não vêm do quadro NBR validado — lote, quadra e área são preenchidos
+                automaticamente.
               </p>
             </div>
             <Button
@@ -283,32 +310,11 @@ export function VisaoGeralTab({ emp }: { emp: EmpreendimentoView }) {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Field label="Número do lote">
-              <Input
-                value={imovelForm.loteNumero}
-                onChange={(e) => setImovel("loteNumero", e.target.value)}
-                placeholder="Ex.: 13"
-              />
-            </Field>
-            <Field label="Quadra">
-              <Input
-                value={imovelForm.quadra}
-                onChange={(e) => setImovel("quadra", e.target.value)}
-                placeholder="Ex.: 4"
-              />
-            </Field>
             <Field label="Loteamento">
               <Input
                 value={imovelForm.loteamento}
                 onChange={(e) => setImovel("loteamento", e.target.value)}
                 placeholder="Ex.: MADRID"
-              />
-            </Field>
-            <Field label="Área do terreno (m²)">
-              <Input
-                value={imovelForm.area}
-                onChange={(e) => setImovel("area", e.target.value)}
-                placeholder="Ex.: 2.763,00"
               />
             </Field>
             <Field label="Número da matrícula">
@@ -346,69 +352,107 @@ export function VisaoGeralTab({ emp }: { emp: EmpreendimentoView }) {
           <div className="h-px bg-border" />
 
           <div>
-            <h4 className="text-sm font-semibold mb-1">Confrontações</h4>
-            <p className="text-xs text-muted-foreground mb-4">
-              Informe confrontante, medida e azimute para cada direção cardinal.
-            </p>
-            <div className="space-y-4">
-              {imovelForm.confrontacoes.map((conf, index) => {
-                const label =
-                  DIRECOES_CONFRONTACAO.find((d) => d.key === conf.direcao)?.label ??
-                  conf.direcao;
-                return (
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div>
+                <h4 className="text-sm font-semibold">Confrontações</h4>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Adicione cada confrontação e escolha a direção (norte, sul, leste, oeste e
+                  variações).
+                </p>
+              </div>
+              <Button type="button" size="sm" variant="outline" onClick={adicionarConfrontacao}>
+                <Plus className="h-3.5 w-3.5" /> Adicionar
+              </Button>
+            </div>
+
+            {imovelForm.confrontacoes.length === 0 ? (
+              <div className="border border-dashed border-border rounded-lg p-8 text-center text-sm text-muted-foreground">
+                Nenhuma confrontação cadastrada. Clique em Adicionar para incluir.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {imovelForm.confrontacoes.map((conf) => (
                   <div
-                    key={conf.direcao}
+                    key={conf.formId}
                     className="border border-border rounded-lg p-4 bg-muted/20 space-y-3"
                   >
-                    <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      {label}
+                    <div className="flex items-center justify-between gap-3">
+                      <Field label="Direção" className="flex-1 mb-0">
+                        <Select
+                          value={conf.direcao}
+                          onValueChange={(v) => setConfrontacao(conf.formId, { direcao: v })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione a direção" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {OPCOES_DIRECAO_CONFRONTACAO.map((o) => (
+                              <SelectItem key={o.value} value={o.value}>
+                                {o.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 shrink-0 mt-5"
+                        onClick={() => removerConfrontacao(conf.formId)}
+                        aria-label={`Remover confrontação ${labelDirecaoConfrontacao(conf.direcao)}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-[var(--color-alerta)]" />
+                      </Button>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <Field label="Confrontante">
                         <Input
                           value={conf.confrontante}
-                          onChange={(e) => setConfrontacao(index, { confrontante: e.target.value })}
+                          onChange={(e) =>
+                            setConfrontacao(conf.formId, { confrontante: e.target.value })
+                          }
                           placeholder="Ex.: Lotes nº 1 a 12"
                         />
                       </Field>
                       <Field label="Medida">
                         <Input
                           value={conf.medida}
-                          onChange={(e) => setConfrontacao(index, { medida: e.target.value })}
+                          onChange={(e) => setConfrontacao(conf.formId, { medida: e.target.value })}
                           placeholder="Ex.: 90,00 metros"
                         />
                       </Field>
                       <Field label="Azimute">
                         <Input
                           value={conf.azimute}
-                          onChange={(e) => setConfrontacao(index, { azimute: e.target.value })}
+                          onChange={(e) => setConfrontacao(conf.formId, { azimute: e.target.value })}
                           placeholder="Ex.: 55°19'53&quot;"
                         />
                       </Field>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </Card>
 
         <Card className="p-6 border-border shadow-none space-y-5">
           <div className="flex items-center justify-between">
             <div>
-              <SectionTitle icon={UserCircle2}>Sócio administrador</SectionTitle>
+              <SectionTitle icon={UserCircle2}>Sócios administradores</SectionTitle>
               <p className="text-xs text-muted-foreground mt-1">
-                Qualificação completa do representante — não vem do quadro NBR.
+                Nomes importados do quadro NBR; CPF, RG e endereço são preenchidos manualmente.
               </p>
             </div>
             <Button size="sm" onClick={abrirNovo}>
-              <Plus className="h-3.5 w-3.5" /> Adicionar
+              <Plus className="h-3.5 w-3.5" /> Adicionar sócio
             </Button>
           </div>
 
           {representantes.length === 0 ? (
             <div className="border border-dashed border-border rounded-lg p-8 text-center text-sm text-muted-foreground">
-              Nenhum sócio administrador cadastrado.
+              Nenhum sócio cadastrado. Adicione manualmente ou importe pelo quadro NBR.
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -419,7 +463,14 @@ export function VisaoGeralTab({ emp }: { emp: EmpreendimentoView }) {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <div className="text-sm font-semibold truncate">{r.nome || "Sem nome"}</div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="text-sm font-semibold truncate">{r.nome || "Sem nome"}</div>
+                        {r.origemQuadro && (
+                          <span className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                            Quadro NBR
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs text-muted-foreground mt-0.5">
                         CPF {r.cpf || "—"} · RG {r.rg || "—"}
                       </div>
@@ -433,7 +484,7 @@ export function VisaoGeralTab({ emp }: { emp: EmpreendimentoView }) {
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
-                      {representantes.length > 1 && (
+                      {podeRemover(r) && (
                         <Button
                           size="icon"
                           variant="ghost"
@@ -549,8 +600,13 @@ export function VisaoGeralTab({ emp }: { emp: EmpreendimentoView }) {
         }}
         representante={editando}
         onSalvar={(r) => void salvarRepresentante(r)}
-        titulo="Sócio administrador"
-        descricao="Cadastre a qualificação completa do sócio administrador para o preâmbulo do memorial."
+        titulo={editando?.origemQuadro ? "Qualificação do sócio (quadro NBR)" : "Sócio administrador"}
+        descricao={
+          editando?.origemQuadro
+            ? "O nome vem do quadro NBR. Complete CPF, RG, estado civil e endereço manualmente."
+            : "Cadastre a qualificação completa do sócio administrador."
+        }
+        nomeSomenteLeitura={Boolean(editando?.origemQuadro)}
         salvando={saveRepresentanteMutation.isPending}
       />
     </div>

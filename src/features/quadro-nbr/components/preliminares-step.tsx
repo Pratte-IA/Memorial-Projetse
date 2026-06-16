@@ -220,7 +220,7 @@ export function PreliminaresStep({ quadro, alertas, onChange }: PreliminaresStep
       titulo={quadro.titulo}
       descricao={
         onChange
-          ? "Valide os campos hierárquicos da aba Informações Preliminares."
+          ? "Edite os campos e clique em Salvar para persistir as alterações."
           : "Campos validados na importação do quadro CFMD."
       }
       alertas={alertas}

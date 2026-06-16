@@ -83,8 +83,10 @@ export interface MemorialContextData {
     quadraNumero: string;
     quadraNumeroExtenso: string;
     loteamento: string;
+    comarca: string;
     cidade: string;
     uf: string;
+    ufExtenso: string;
     area: string;
     areaExtenso: string;
     matricula: string;
