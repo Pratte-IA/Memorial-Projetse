@@ -1,14 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Copy, Loader2, Pencil, Search } from "lucide-react";
+import { toast } from "sonner";
+import { useEffect, useMemo, useState } from "react";
+
 import { PageHeader } from "@/components/page-header";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { canManageOrg } from "@/features/auth/permissions";
 import { useAuth } from "@/features/auth/use-auth";
-import { useClausulas } from "@/features/documentos/hooks";
+import { EditarClausulaDialog } from "@/features/documentos/components/editar-clausula-dialog";
+import { useClausulas, useDuplicateClausula } from "@/features/documentos/hooks";
 import type { ClausulaRecord } from "@/features/documentos/types";
-import { Search } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
 
 export const Route = createFileRoute("/_app/clausulas")({
   component: Clausulas,
@@ -17,11 +21,33 @@ export const Route = createFileRoute("/_app/clausulas")({
 function Clausulas() {
   const { membership } = useAuth();
   const orgId = membership?.organization_id ?? null;
+  const podeGerenciar = canManageOrg(membership?.role);
   const { data: clausulas, isLoading, isError, refetch } = useClausulas(orgId);
+  const duplicateMutation = useDuplicateClausula(orgId);
 
   const [busca, setBusca] = useState("");
   const [cat, setCat] = useState("Todas");
   const [sel, setSel] = useState<ClausulaRecord | null>(null);
+  const [editando, setEditando] = useState<ClausulaRecord | null>(null);
+
+  const maxOrdem = useMemo(
+    () => (clausulas ?? []).reduce((max, c) => Math.max(max, c.ordem), 0),
+    [clausulas],
+  );
+
+  const handleDuplicar = async () => {
+    if (!sel) return;
+
+    try {
+      const nova = await duplicateMutation.mutateAsync({ source: sel, maxOrdem });
+      toast.success("Cláusula duplicada.", {
+        description: "A cópia foi adicionada com status Em revisão.",
+      });
+      setSel(nova);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível duplicar a cláusula.");
+    }
+  };
 
   const categorias = useMemo(
     () => ["Todas", ...Array.from(new Set((clausulas ?? []).map((c) => c.categoria)))],
@@ -166,10 +192,25 @@ function Clausulas() {
                       Atualizado em {sel.atualizadoEm}
                     </span>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" disabled>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!podeGerenciar || duplicateMutation.isPending}
+                        onClick={() => void handleDuplicar()}
+                      >
+                        {duplicateMutation.isPending ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Copy className="h-3.5 w-3.5" />
+                        )}
                         Duplicar
                       </Button>
-                      <Button size="sm" disabled>
+                      <Button
+                        size="sm"
+                        disabled={!podeGerenciar}
+                        onClick={() => setEditando(sel)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
                         Editar cláusula
                       </Button>
                     </div>
@@ -184,6 +225,21 @@ function Clausulas() {
           </>
         )}
       </div>
+
+      {editando && orgId && (
+        <EditarClausulaDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setEditando(null);
+          }}
+          clausula={editando}
+          organizationId={orgId}
+          onSaved={(updated) => {
+            setSel(updated);
+            setEditando(null);
+          }}
+        />
+      )}
     </>
   );
 }

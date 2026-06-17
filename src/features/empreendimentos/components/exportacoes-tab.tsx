@@ -17,7 +17,6 @@ import {
   Download,
   FileCheck2,
   FileDown,
-  FileText,
   FileType,
   Loader2,
 } from "lucide-react";
@@ -25,6 +24,14 @@ import {
 interface ExportacoesTabProps {
   empreendimentoId: number | null;
   empreendimentoNome: string;
+}
+
+function mensagemErro(error: unknown, fallback: string): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && error !== null && "message" in error) {
+    return String((error as { message: unknown }).message);
+  }
+  return fallback;
 }
 
 export function ExportacoesTab({ empreendimentoId, empreendimentoNome }: ExportacoesTabProps) {
@@ -51,7 +58,7 @@ export function ExportacoesTab({ empreendimentoId, empreendimentoNome }: Exporta
       });
       toast.success(`${record.fileName} exportado e salvo no storage.`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível exportar.");
+      toast.error(mensagemErro(error, "Não foi possível exportar."));
     }
   };
 
@@ -77,52 +84,7 @@ export function ExportacoesTab({ empreendimentoId, empreendimentoNome }: Exporta
     <div className="space-y-5">
       <ProntidaoExportacaoPanel empreendimentoId={empreendimentoId} />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <Card className="p-6 border-border shadow-none">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="h-10 w-10 rounded-md bg-[var(--color-ceu)]/10 text-[var(--color-ceu)] flex items-center justify-center">
-              <FileText className="h-5 w-5" />
-            </div>
-            <div>
-              <h4 className="font-semibold">Versão de revisão</h4>
-              <p className="text-xs text-muted-foreground">
-                Documento de trabalho para conferência interna.
-              </p>
-            </div>
-          </div>
-          <div className="text-xs text-muted-foreground mb-4">
-            Inclui marcações de status das seções em revisão ou com pendência.
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              className="flex-1"
-              disabled={exportMutation.isPending}
-              onClick={() => void exportar("revisao", "docx")}
-            >
-              {exportMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <FileDown className="h-4 w-4" />
-              )}
-              DOCX
-            </Button>
-            <Button
-              variant="outline"
-              className="flex-1"
-              disabled={exportMutation.isPending}
-              onClick={() => void exportar("revisao", "pdf")}
-            >
-              {exportMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <FileDown className="h-4 w-4" />
-              )}
-              PDF
-            </Button>
-          </div>
-        </Card>
-
+      <div className="max-w-xl">
         <Card className={`p-6 border-border shadow-none ${bloqueado ? "opacity-90" : ""}`}>
           <div className="flex items-center gap-3 mb-3">
             <div className="h-10 w-10 rounded-md bg-[var(--color-verde)]/15 text-[var(--color-verde-escuro)] flex items-center justify-center">
@@ -187,43 +149,47 @@ export function ExportacoesTab({ empreendimentoId, empreendimentoNome }: Exporta
             Nenhuma exportação registrada ainda.
           </div>
         ) : (
-          <table className="w-full text-sm">
-            <tbody className="divide-y divide-border">
-              {(exportacoes ?? []).map((a) => (
-                <tr key={a.id}>
-                  <td className="px-5 py-3">
-                    <div className="flex items-center gap-3">
-                      <FileType className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <span className="font-medium">{a.fileName}</span>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3 text-muted-foreground text-mono-tabular whitespace-nowrap">
-                    {new Date(a.createdAt).toLocaleString("pt-BR", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </td>
-                  <td className="px-5 py-3 text-muted-foreground">{a.createdByName}</td>
-                  <td className="px-5 py-3">
-                    <StatusBadge status={a.status === "exportado" ? "Exportado" : a.status} />
-                  </td>
-                  <td className="px-5 py-3 text-right">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={downloadMutation.isPending}
-                      onClick={() => void baixar(a.storagePath)}
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="max-h-[min(50vh,28rem)] overflow-auto">
+            <table className="w-full text-sm min-w-[40rem]">
+              <tbody className="divide-y divide-border">
+                {(exportacoes ?? []).map((a) => (
+                  <tr key={a.id}>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <FileType className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="font-medium">{a.fileName}</span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3 text-muted-foreground text-mono-tabular whitespace-nowrap">
+                      {new Date(a.createdAt).toLocaleString("pt-BR", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </td>
+                    <td className="px-5 py-3 text-muted-foreground whitespace-nowrap">
+                      {a.createdByName}
+                    </td>
+                    <td className="px-5 py-3 whitespace-nowrap">
+                      <StatusBadge status={a.status === "exportado" ? "Exportado" : a.status} />
+                    </td>
+                    <td className="px-5 py-3 text-right whitespace-nowrap">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={downloadMutation.isPending}
+                        onClick={() => void baixar(a.storagePath)}
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
     </div>

@@ -1,11 +1,16 @@
 import { fetchMemorial } from "@/features/memorial/api";
 import { fetchUnidades } from "@/features/unidades/api";
+import {
+  downloadModeloTimbrado,
+  fetchTimbradoPdfForExport,
+} from "@/features/documentos/api";
 import { supabase } from "@/lib/supabase/client";
 import type { Json } from "@/lib/supabase/types";
 
-import { buildMemorialPlainText } from "./build-document";
+import { buildMemorialDocument } from "./build-document";
 import { DOCUMENTOS_EXPORTADOS_BUCKET } from "./constants";
-import { createDocxBlob, createPdfBlob } from "./generators";
+import { createDocxBlob } from "./generators";
+import { createPdfBlobWithTimbrado } from "./pdf-timbrado";
 import { mapRowToExportacao } from "./mappers";
 import type {
   ExportDocumentInput,
@@ -68,7 +73,9 @@ function buildStoragePath(
 }
 
 function mimeForFormato(formato: ExportFormato): string {
-  return formato === "pdf" ? "application/pdf" : "application/rtf";
+  return formato === "pdf"
+    ? "application/pdf"
+    : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 }
 
 export async function fetchPendenciasBloqueantes(
@@ -117,14 +124,30 @@ export async function exportDocument(input: ExportDocumentInput): Promise<Export
   }
 
   const unidades = await fetchUnidades(input.empreendimentoId);
-  const plainText = buildMemorialPlainText({
+  const memorialDocument = buildMemorialDocument({
     empreendimentoNome: input.empreendimentoNome,
     memorial,
     tipo: input.tipo,
     unidades,
   });
 
-  const blob = input.formato === "pdf" ? createPdfBlob(plainText) : createDocxBlob(plainText);
+  let blob: Blob;
+  let timbradoModeloId: number | null = null;
+
+  if (input.formato === "pdf") {
+    const timbrado = await fetchTimbradoPdfForExport(input.organizationId);
+    if (!timbrado?.storagePath) {
+      throw new Error(
+        "Nenhum timbrado PDF ativo cadastrado. Cadastre um modelo em Modelos de Documento.",
+      );
+    }
+
+    const timbradoBytes = await downloadModeloTimbrado(timbrado.storagePath);
+    blob = await createPdfBlobWithTimbrado(memorialDocument, timbradoBytes);
+    timbradoModeloId = timbrado.id;
+  } else {
+    blob = createDocxBlob(memorialDocument);
+  }
 
   const storagePath = buildStoragePath(
     input.organizationId,
@@ -173,6 +196,7 @@ export async function exportDocument(input: ExportDocumentInput): Promise<Export
       storage_path: storagePath,
       tipo: input.tipo,
       formato: input.formato,
+      modelo_id: timbradoModeloId,
     },
   );
 

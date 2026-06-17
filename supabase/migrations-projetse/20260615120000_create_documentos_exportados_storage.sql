@@ -41,6 +41,7 @@ values (
     'application/pdf',
     'application/rtf',
     'application/vnd.ms-word',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'text/plain'
   ]
 )

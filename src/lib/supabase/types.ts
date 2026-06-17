@@ -633,28 +633,40 @@ export type Database = {
       modelos_documento: {
         Row: {
           created_at: string;
+          file_name: string | null;
           id: number;
+          mime_type: string | null;
           nome: string;
           organization_id: number;
+          size_bytes: number | null;
           status: string;
+          storage_path: string | null;
           tipo: string | null;
           updated_at: string;
         };
         Insert: {
           created_at?: string;
+          file_name?: string | null;
           id?: number;
+          mime_type?: string | null;
           nome: string;
           organization_id: number;
+          size_bytes?: number | null;
           status?: string;
+          storage_path?: string | null;
           tipo?: string | null;
           updated_at?: string;
         };
         Update: {
           created_at?: string;
+          file_name?: string | null;
           id?: number;
+          mime_type?: string | null;
           nome?: string;
           organization_id?: number;
+          size_bytes?: number | null;
           status?: string;
+          storage_path?: string | null;
           tipo?: string | null;
           updated_at?: string;
         };

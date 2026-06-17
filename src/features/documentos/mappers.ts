@@ -7,6 +7,10 @@ type ModeloRow = {
   tipo: string | null;
   status: string;
   updated_at: string;
+  storage_path: string | null;
+  file_name: string | null;
+  mime_type: string | null;
+  size_bytes: number | null;
 };
 
 type ClausulaRow = {
@@ -45,6 +49,11 @@ export function mapRowToModelo(row: ModeloRow): ModeloRecord {
     status: row.status,
     statusLabel: modeloStatusLabel(row.status),
     atualizadoEm: formatDate(row.updated_at),
+    storagePath: row.storage_path,
+    fileName: row.file_name,
+    mimeType: row.mime_type,
+    sizeBytes: row.size_bytes,
+    hasTimbrado: Boolean(row.storage_path),
   };
 }
 

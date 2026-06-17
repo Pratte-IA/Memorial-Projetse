@@ -194,8 +194,8 @@ export function ProntidaoExportacaoPanel({
       <div className="px-5 py-3 bg-muted/20 text-xs text-muted-foreground flex items-start gap-2">
         <HelpCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
         <span>
-          A versão de revisão pode ser exportada com pendências. A versão final exige seções
-          aprovadas e ausência de pendências bloqueantes no sistema.
+          A exportação final exige seções aprovadas e ausência de pendências bloqueantes no
+          sistema.
         </span>
       </div>
     </Card>

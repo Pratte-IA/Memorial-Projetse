@@ -28,6 +28,11 @@ create index if not exists condominio_espacos_comuns_empreendimento_id_idx
 alter table projetse.condominio_pavimentos enable row level security;
 alter table projetse.condominio_espacos_comuns enable row level security;
 
+drop policy if exists condominio_pavimentos_select on projetse.condominio_pavimentos;
+drop policy if exists condominio_pavimentos_write on projetse.condominio_pavimentos;
+drop policy if exists condominio_espacos_comuns_select on projetse.condominio_espacos_comuns;
+drop policy if exists condominio_espacos_comuns_write on projetse.condominio_espacos_comuns;
+
 create policy condominio_pavimentos_select
   on projetse.condominio_pavimentos for select to authenticated
   using (projetse.can_access_empreendimento(empreendimento_id));
