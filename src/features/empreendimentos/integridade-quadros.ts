@@ -1,5 +1,7 @@
 import { getBlocoTitulo, isCampoConfirmado } from "@/features/dados-extraidos/status";
 import type { DadoExtraidoRecord, DadoExtraidoStatus } from "@/features/dados-extraidos/types";
+import type { DocumentoNbrExtraido } from "@/features/quadro-nbr/types";
+import { getQuadroById } from "@/features/quadro-nbr/parser";
 
 import type {
   IntegridadeQuadrosInput,
@@ -133,6 +135,54 @@ export function countQuadrosValidados(quadros: QuadroBlocoIntegridade[]): {
   const total = relevantes.length || quadros.length;
   const validados = relevantes.filter((q) => q.status === "validado").length;
   return { validados, total };
+}
+
+const MEMORIAL_DESC_BLOCOS = ["qvi", "qvii", "qviii"] as const;
+
+function countLinhasMemorialDescritivo(
+  documento: DocumentoNbrExtraido,
+  bloco: (typeof MEMORIAL_DESC_BLOCOS)[number],
+): number {
+  const quadro = getQuadroById(documento, bloco);
+  if (!quadro || !("linhas" in quadro)) return 0;
+
+  return quadro.linhas.filter((linha) => {
+    if ("isSecao" in linha && linha.isSecao) return Boolean(linha.dependencia?.trim());
+    if ("equipamento" in linha) return Boolean(linha.equipamento?.trim());
+    return Boolean(linha.dependencia?.trim());
+  }).length;
+}
+
+/**
+ * Quadros VI/VII/VIII usam linhas tabulares e nem sempre foram persistidos em dados_extraidos.
+ * Quando ausentes no banco, infere presença a partir do arquivo NBR vinculado.
+ */
+export function enrichMemorialDescQuadrosFromDocumento(
+  quadros: QuadroBlocoIntegridade[],
+  documento: DocumentoNbrExtraido | null,
+): QuadroBlocoIntegridade[] {
+  if (!documento) return quadros;
+
+  return quadros.map((quadro) => {
+    if (!MEMORIAL_DESC_BLOCOS.includes(quadro.bloco as (typeof MEMORIAL_DESC_BLOCOS)[number])) {
+      return quadro;
+    }
+    if (quadro.status !== "ausente") return quadro;
+
+    const bloco = quadro.bloco as (typeof MEMORIAL_DESC_BLOCOS)[number];
+    if (!documento.quadrosPresentes.includes(bloco)) return quadro;
+
+    const linhas = countLinhasMemorialDescritivo(documento, bloco);
+    if (linhas === 0) return quadro;
+
+    return {
+      ...quadro,
+      status: "validado",
+      totalCampos: linhas,
+      camposConfirmados: linhas,
+      detalhe: `${linhas} linha(s) validada(s) no quadro técnico`,
+    };
+  });
 }
 
 export function getQuadroStatusLabel(status: QuadroBlocoStatusUi): string {

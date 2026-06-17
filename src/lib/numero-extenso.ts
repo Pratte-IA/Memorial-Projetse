@@ -64,12 +64,38 @@ function belowThousand(value: number): string {
   return rest ? `${hundredWord} e ${belowThousand(rest)}` : hundredWord;
 }
 
+function belowMillion(value: number, joinThousands = " e "): string {
+  if (value === 0) return "";
+  if (value < 1000) return belowThousand(value);
+
+  const thousands = Math.floor(value / 1000);
+  const rest = value % 1000;
+  const thousandWord = thousands === 1 ? "mil" : `${belowThousand(thousands)} mil`;
+  return rest ? `${thousandWord}${joinThousands}${belowThousand(rest)}` : thousandWord;
+}
+
+function integerFromBillions(value: number): string {
+  const billions = Math.floor(value / 1_000_000_000);
+  const rest = value % 1_000_000_000;
+  const billionWord = billions === 1 ? "um bilhão" : `${belowThousand(billions)} bilhões`;
+  if (rest === 0) return billionWord;
+  return `${billionWord}, ${integerFromMillions(rest)}`;
+}
+
+function integerFromMillions(value: number): string {
+  const millions = Math.floor(value / 1_000_000);
+  const rest = value % 1_000_000;
+  const millionWord = millions === 1 ? "um milhão" : `${belowThousand(millions)} milhões`;
+  if (rest === 0) return millionWord;
+  return `${millionWord}, ${belowMillion(rest)}`;
+}
+
 /** Parte inteira com vírgula após milhares (padrão memorial). */
 function integerPartPorExtenso(value: number): string {
   if (!Number.isFinite(value) || value < 0) return "";
   if (value === 0) return "zero";
-  if (value >= 1000000) return String(value);
-
+  if (value >= 1_000_000_000) return integerFromBillions(value);
+  if (value >= 1_000_000) return integerFromMillions(value);
   if (value < 1000) return belowThousand(value);
 
   const thousands = Math.floor(value / 1000);
@@ -78,18 +104,33 @@ function integerPartPorExtenso(value: number): string {
   return rest ? `${thousandWord}, ${belowThousand(rest)}` : thousandWord;
 }
 
-/** Converte inteiro (0–999.999) para palavras em português. */
+/** Converte inteiro para palavras em português (suporta milhões e bilhões). */
 export function integerToPortuguese(value: number): string {
   if (!Number.isFinite(value)) return "";
   if (value === 0) return "zero";
-  if (value < 0 || value >= 1000000) return String(value);
+  if (value < 0) return String(value);
+  if (value >= 1_000_000_000) return integerFromBillions(value);
+  if (value >= 1_000_000) return integerFromMillions(value);
+  return belowMillion(value);
+}
 
-  if (value < 1000) return belowThousand(value);
+/** Valor monetário por extenso (ex.: 11943030 → "onze milhões... trinta reais"). */
+export function valorMonetarioPorExtenso(
+  valor: number,
+  options?: { capitalize?: boolean },
+): string {
+  if (!Number.isFinite(valor) || valor < 0) return "";
 
-  const thousands = Math.floor(value / 1000);
-  const rest = value % 1000;
-  const thousandWord = thousands === 1 ? "mil" : `${belowThousand(thousands)} mil`;
-  return rest ? `${thousandWord} e ${belowThousand(rest)}` : thousandWord;
+  const reais = Math.floor(valor);
+  const centavos = Math.round((valor - reais) * 100);
+  let texto = `${integerToPortuguese(reais)} ${reais === 1 ? "real" : "reais"}`;
+  if (centavos > 0) {
+    texto += ` e ${integerToPortuguese(centavos)} ${centavos === 1 ? "centavo" : "centavos"}`;
+  }
+  if (options?.capitalize) {
+    texto = texto.charAt(0).toUpperCase() + texto.slice(1);
+  }
+  return texto;
 }
 
 /** Área em m² por extenso (ex.: 2.089,92 → "dois mil, oitenta e nove metros quadrados e noventa e dois centímetros quadrados"). */

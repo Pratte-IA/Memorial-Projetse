@@ -276,7 +276,7 @@ export const secoesMemorial: SecaoMemorial[] = [
     titulo: "Sexta – Do Orçamento da Edificação",
     status: "Gerada",
     conteudo:
-      "O custo global estimado da edificação, para fins do presente memorial de incorporação, é de R$ 11.943.030,00 (onze milhões, novecentos e quarenta e três mil e trinta reais), correspondente a 3.839,47 (três mil, oitocentos e trinta e nove vírgula quarenta e sete) vezes o CUB (Custo Unitário Básico) de R$ 3.110,60 (três mil, cento e dez reais e sessenta centavos), referente ao mês de fevereiro/2026, divulgado pelo Sinduscon Paraná.",
+      "De acordo com a referida Norma Brasileira nº 12.721/2006, o custo da edificação foi orçado em R$ 11.943.030,00 (onze milhões, novecentos e quarenta e três mil e trinta reais), com base no Custo Unitário Básico (CUB) PP-B padrão baixo do mês de Fevereiro/2026, fornecido pelo Sindicato da Indústria da Construção Civil (Sinduscon) Paraná Oeste, atribuindo ao metro quadrado da construção o valor de R$ 3.114,00 (três mil, cento e quatorze reais), sendo que o custo de cada unidade autônoma foi orçado da mesma forma: a) Apartamentos 01, 02, 03, 04, 101, 102, 103, 104, 201, 202, 203, 204, 301, 302, 303, 304, 401, 402, 403 e 404 (Torre 01, 02 e 03): R$ 199.050,50 (Cento e noventa e nove mil e cinquenta reais e cinquenta centavos) cada apartamento;",
   },
   {
     id: "destinacao",
@@ -585,21 +585,22 @@ export const clausulas: Clausula[] = [
     ordem: 6,
     titulo: "Sexta – Do Orçamento da Edificação",
     categoria: "Orçamento",
-    resumo: "Declara o custo global estimado da edificação com base no CUB de referência.",
+    resumo:
+      "Declara o custo da edificação com base no CUB e no orçamento por unidade autônoma do quadro NBR 12.721.",
     status: "Publicada",
     variaveis: [
       "orcamento.valor",
       "orcamento.valorExtenso",
-      "orcamento.cubMultiplicador",
-      "orcamento.cubMultiplicadorExtenso",
-      "orcamento.cubValor",
-      "orcamento.cubValorExtenso",
-      "orcamento.mesReferencia",
-      "orcamento.anoReferencia",
-      "orcamento.regiaoCub",
+      "orcamento.cubDesignacao",
+      "orcamento.padraoAcabamento",
+      "orcamento.mesReferenciaCub",
+      "orcamento.sindicatoCub",
+      "orcamento.custoMetroQuadrado",
+      "orcamento.custoMetroQuadradoExtenso",
+      "listaOrcamentoUnidades",
     ],
     template:
-      "O custo global estimado da edificação, para fins do presente memorial de incorporação, é de {{orcamento.valor}} ({{orcamento.valorExtenso}}), correspondente a {{orcamento.cubMultiplicador}} ({{orcamento.cubMultiplicadorExtenso}}) vezes o CUB (Custo Unitário Básico) de {{orcamento.cubValor}} ({{orcamento.cubValorExtenso}}), referente ao mês de {{orcamento.mesReferencia}}/{{orcamento.anoReferencia}}, divulgado pelo Sinduscon {{orcamento.regiaoCub}}.",
+      "De acordo com a referida Norma Brasileira nº 12.721/2006, o custo da edificação foi orçado em {{orcamento.valor}} ({{orcamento.valorExtenso}}), com base no Custo Unitário Básico (CUB) {{orcamento.cubDesignacao}} padrão {{orcamento.padraoAcabamento}} do mês de {{orcamento.mesReferenciaCub}}, fornecido pelo {{orcamento.sindicatoCub}}, atribuindo ao metro quadrado da construção o valor de {{orcamento.custoMetroQuadrado}} ({{orcamento.custoMetroQuadradoExtenso}}), sendo que o custo de cada unidade autônoma foi orçado da mesma forma: {{listaOrcamentoUnidades}}",
   },
   {
     id: "c7",

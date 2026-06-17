@@ -53,3 +53,13 @@ export function formatSecaoSumarioNumero(ordem: number): string {
   if (ordem <= 0) return "—";
   return String(ordem).padStart(2, "0");
 }
+
+/** Seção adicionada manualmente a este memorial (não vem do modelo padrão). */
+export function isSecaoExtra(secao: { clausulaId: number | null }): boolean {
+  return secao.clausulaId === null;
+}
+
+/** Maior número de cláusula numerada (ordem > 0) no memorial. */
+export function maxNumeroClausulaMemorial(secoes: Array<{ ordem: number }>): number {
+  return secoes.reduce((max, s) => (s.ordem > 0 ? Math.max(max, s.ordem) : max), 0);
+}

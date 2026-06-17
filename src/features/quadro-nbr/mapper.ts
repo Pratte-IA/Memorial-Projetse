@@ -7,6 +7,8 @@ import { CHAVE_VAGAS_TOTAL, parseQuantidadeVaga } from "./vaga-labels";
 import type {
   ConfrontacaoLabels,
   DocumentoNbrExtraido,
+  LinhaAcabamento,
+  LinhaEquipamento,
   LinhaPavimento,
   LinhaResumo,
   LinhaUnidadeReal,
@@ -460,6 +462,57 @@ function upsertDadoExtraido(
   index.set(dadoExtraidoKey(record.bloco, record.campo), record);
 }
 
+function upsertMemorialLinhaCampo(
+  index: Map<string, DadoExtraidoInsertPayload>,
+  bloco: "qvi" | "qvii" | "qviii",
+  linhaIdx: number,
+  campo: string,
+  valor: string,
+  statusCampo: "extraido" | "confirmado",
+): void {
+  const trimmed = valor.trim();
+  if (!trimmed) return;
+
+  upsertDadoExtraido(index, {
+    bloco,
+    campo: `linha__${linhaIdx}__${campo}`,
+    valor: trimmed,
+    confianca: 92,
+    status: statusCampo,
+  });
+}
+
+function mapMemorialEquipamentosToDadosExtraidos(
+  index: Map<string, DadoExtraidoInsertPayload>,
+  linhas: LinhaEquipamento[],
+  statusCampo: "extraido" | "confirmado",
+): void {
+  linhas.forEach((linha, i) => {
+    upsertMemorialLinhaCampo(index, "qvi", i, "equipamento", linha.equipamento, statusCampo);
+    upsertMemorialLinhaCampo(index, "qvi", i, "tipo_marca", linha.tipoMarca, statusCampo);
+    upsertMemorialLinhaCampo(index, "qvi", i, "acabamento", linha.acabamento, statusCampo);
+  });
+}
+
+function mapMemorialAcabamentosToDadosExtraidos(
+  index: Map<string, DadoExtraidoInsertPayload>,
+  bloco: "qvii" | "qviii",
+  linhas: LinhaAcabamento[],
+  statusCampo: "extraido" | "confirmado",
+): void {
+  linhas.forEach((linha, i) => {
+    upsertMemorialLinhaCampo(index, bloco, i, "dependencia", linha.dependencia, statusCampo);
+    if (linha.isSecao) return;
+
+    upsertMemorialLinhaCampo(index, bloco, i, "piso_revestimento", linha.pisoRevestimento, statusCampo);
+    upsertMemorialLinhaCampo(index, bloco, i, "piso_acabamento", linha.pisoAcabamento, statusCampo);
+    upsertMemorialLinhaCampo(index, bloco, i, "parede_revestimento", linha.paredeRevestimento, statusCampo);
+    upsertMemorialLinhaCampo(index, bloco, i, "parede_acabamento", linha.paredeAcabamento, statusCampo);
+    upsertMemorialLinhaCampo(index, bloco, i, "teto_revestimento", linha.tetoRevestimento, statusCampo);
+    upsertMemorialLinhaCampo(index, bloco, i, "teto_acabamento", linha.tetoAcabamento, statusCampo);
+  });
+}
+
 export function mapDocumentoToDadosExtraidos(
   documento: DocumentoNbrExtraido,
   options?: { validadoNoWizard?: boolean },
@@ -537,6 +590,14 @@ export function mapDocumentoToDadosExtraidos(
           });
         }
       }
+    }
+
+    if (quadro.id === "qvi" && "linhas" in quadro) {
+      mapMemorialEquipamentosToDadosExtraidos(index, quadro.linhas, statusCampo);
+    }
+
+    if ((quadro.id === "qvii" || quadro.id === "qviii") && "linhas" in quadro) {
+      mapMemorialAcabamentosToDadosExtraidos(index, quadro.id, quadro.linhas, statusCampo);
     }
   }
 

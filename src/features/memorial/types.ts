@@ -117,14 +117,14 @@ export interface MemorialContextData {
   orcamento: {
     valor: string;
     valorExtenso: string;
-    cubMultiplicador: string;
-    cubMultiplicadorExtenso: string;
-    cubValor: string;
-    cubValorExtenso: string;
-    mesReferencia: string;
-    anoReferencia: string;
-    regiaoCub: string;
+    cubDesignacao: string;
+    padraoAcabamento: string;
+    mesReferenciaCub: string;
+    sindicatoCub: string;
+    custoMetroQuadrado: string;
+    custoMetroQuadradoExtenso: string;
   };
   areasPavimentos: string;
   listaUnidades: string;
+  listaOrcamentoUnidades: string;
 }

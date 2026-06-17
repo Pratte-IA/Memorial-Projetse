@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { fetchMemorialContext } from "./context";
 import {
+  addSecaoExtra,
+  deleteSecaoExtra,
   ensureMemorial,
   fetchMemorial,
   generateMemorialCompleto,
@@ -94,6 +96,32 @@ export function useGenerateMemorialCompleto(empreendimentoId: number | null) {
 
   return useMutation({
     mutationFn: generateMemorialCompleto,
+    onSuccess: () => {
+      if (empreendimentoId) {
+        void queryClient.invalidateQueries({ queryKey: memorialQueryKey(empreendimentoId) });
+      }
+    },
+  });
+}
+
+export function useAddSecaoExtra(empreendimentoId: number | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: addSecaoExtra,
+    onSuccess: () => {
+      if (empreendimentoId) {
+        void queryClient.invalidateQueries({ queryKey: memorialQueryKey(empreendimentoId) });
+      }
+    },
+  });
+}
+
+export function useDeleteSecaoExtra(empreendimentoId: number | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deleteSecaoExtra,
     onSuccess: () => {
       if (empreendimentoId) {
         void queryClient.invalidateQueries({ queryKey: memorialQueryKey(empreendimentoId) });

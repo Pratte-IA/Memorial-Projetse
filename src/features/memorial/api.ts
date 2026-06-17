@@ -10,7 +10,8 @@ import {
   buildMemorialSecoesRows,
   syncMemorialSecoesWithClausulas,
 } from "./sync-memorial-secoes";
-import { isUnidadesSection } from "./status";
+import { isSecaoExtra, isUnidadesSection } from "./status";
+import { listarRenumeracoesTitulo, montarTituloClausulaExtra } from "./titulo-clausula";
 import type { MemorialRecord, SecaoDbStatus, SecaoRecord } from "./types";
 
 async function logAudit(
@@ -74,6 +75,12 @@ export async function fetchMemorial(empreendimentoId: number): Promise<MemorialR
     if (clausulasSynced || secoesSynced) {
       const refreshed = await fetchMemorialWithoutSync(empreendimentoId);
       if (refreshed) memorial = refreshed;
+    }
+
+    if (memorial.secoes.some((s) => isSecaoExtra(s))) {
+      await renumerarTitulosClausulasMemorial(empreendimentoId, organizationId);
+      const titulosAtualizados = await fetchMemorialWithoutSync(empreendimentoId);
+      if (titulosAtualizados) memorial = titulosAtualizados;
     }
   }
 
@@ -164,6 +171,9 @@ export async function regenerateSecao(input: {
 
   const secao = memorial.secoes.find((s) => s.id === input.secaoId);
   if (!secao) throw new Error("Seção não encontrada.");
+  if (isSecaoExtra(secao)) {
+    throw new Error("Cláusulas extras não podem ser regeneradas a partir do modelo padrão.");
+  }
 
   const [context, clausulas] = await Promise.all([
     fetchMemorialContext(input.empreendimentoId),
@@ -272,6 +282,8 @@ export async function generateMemorialCompleto(input: {
   let geradas = 0;
 
   for (const secao of memorial.secoes) {
+    if (isSecaoExtra(secao)) continue;
+
     const conteudo = generateSecaoConteudo(secao, clausulas, context);
     const novoStatus: SecaoDbStatus = isUnidadesSection(secao.titulo)
       ? "em_revisao"
@@ -306,6 +318,141 @@ export async function generateMemorialCompleto(input: {
   );
 
   return geradas;
+}
+
+async function shiftSecoesOrdem(
+  secoes: Array<{ id: number; ordem: number }>,
+  fromOrdem: number,
+  delta: number,
+): Promise<void> {
+  const toShift = secoes
+    .filter((s) => s.ordem >= fromOrdem)
+    .sort((a, b) => (delta > 0 ? b.ordem - a.ordem : a.ordem - b.ordem));
+
+  for (const s of toShift) {
+    const { error } = await supabase
+      .from("memorial_secoes")
+      .update({ ordem: s.ordem + delta })
+      .eq("id", s.id);
+    if (error) throw error;
+  }
+}
+
+async function renumerarTitulosClausulasMemorial(
+  empreendimentoId: number,
+  organizationId: number,
+): Promise<void> {
+  const memorial = await fetchMemorialWithoutSync(empreendimentoId);
+  if (!memorial) return;
+
+  const clausulas = await fetchClausulas(organizationId);
+  const updates = listarRenumeracoesTitulo(memorial.secoes, clausulas);
+
+  for (const { id, titulo } of updates) {
+    const { error } = await supabase.from("memorial_secoes").update({ titulo }).eq("id", id);
+    if (error) throw error;
+  }
+}
+
+export async function addSecaoExtra(input: {
+  memorialId: number;
+  empreendimentoId: number;
+  organizationId: number;
+  titulo: string;
+  conteudo?: string;
+  /** Número no sumário (1 = 01, após a Qualificação). Demais cláusulas são renumeradas. */
+  numeroClausula: number;
+}): Promise<number> {
+  const memorial = await fetchMemorialWithoutSync(input.empreendimentoId);
+  if (!memorial || memorial.id !== input.memorialId) {
+    throw new Error("Memorial não encontrado.");
+  }
+
+  const tituloUsuario = input.titulo.trim();
+  if (!tituloUsuario) throw new Error("Informe o título da cláusula.");
+
+  const numero = Math.floor(input.numeroClausula);
+  if (!Number.isFinite(numero) || numero < 1) {
+    throw new Error("Informe um número de cláusula válido (1 ou maior).");
+  }
+
+  const maxNumero = memorial.secoes.reduce(
+    (max, s) => (s.ordem > 0 ? Math.max(max, s.ordem) : max),
+    0,
+  );
+  const novaOrdem = Math.min(numero, maxNumero + 1);
+
+  const conteudo = input.conteudo?.trim() ?? "";
+
+  await shiftSecoesOrdem(memorial.secoes, novaOrdem, 1);
+
+  const titulo = montarTituloClausulaExtra(novaOrdem, tituloUsuario);
+  const status: SecaoDbStatus = conteudo ? "gerada" : "nao_gerada";
+
+  const { data, error } = await supabase
+    .from("memorial_secoes")
+    .insert({
+      memorial_id: input.memorialId,
+      clausula_id: null,
+      titulo,
+      conteudo: conteudo || null,
+      status,
+      ordem: novaOrdem,
+    })
+    .select("id")
+    .single();
+
+  if (error) throw error;
+
+  await renumerarTitulosClausulasMemorial(input.empreendimentoId, input.organizationId);
+
+  await logAudit(
+    input.organizationId,
+    input.empreendimentoId,
+    "edicao",
+    `Cláusula extra "${titulo}" adicionada ao memorial.`,
+    { secao_id: data.id, memorial_id: input.memorialId },
+  );
+
+  return data.id;
+}
+
+export async function deleteSecaoExtra(input: {
+  secaoId: number;
+  memorialId: number;
+  empreendimentoId: number;
+  organizationId: number;
+  titulo: string;
+}): Promise<void> {
+  const memorial = await fetchMemorialWithoutSync(input.empreendimentoId);
+  if (!memorial) throw new Error("Memorial não encontrado.");
+
+  const secao = memorial.secoes.find((s) => s.id === input.secaoId);
+  if (!secao) throw new Error("Seção não encontrada.");
+  if (!isSecaoExtra(secao)) {
+    throw new Error("Apenas cláusulas extras podem ser removidas desta forma.");
+  }
+
+  const ordemRemovida = secao.ordem;
+
+  const { error } = await supabase.from("memorial_secoes").delete().eq("id", input.secaoId);
+  if (error) throw error;
+
+  if (ordemRemovida > 0) {
+    const restantes = memorial.secoes.filter(
+      (s) => s.id !== input.secaoId && s.ordem > ordemRemovida,
+    );
+    await shiftSecoesOrdem(restantes, ordemRemovida + 1, -1);
+    await renumerarTitulosClausulasMemorial(input.empreendimentoId, input.organizationId);
+  }
+
+  await logAudit(
+    input.organizationId,
+    input.empreendimentoId,
+    "edicao",
+    `Cláusula extra "${input.titulo}" removida do memorial.`,
+    { secao_id: input.secaoId, memorial_id: input.memorialId },
+  );
 }
 
 export type { SecaoRecord };

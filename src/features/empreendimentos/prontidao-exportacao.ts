@@ -7,7 +7,9 @@ import { fetchEmpreendimentoDetail } from "./api";
 import {
   buildQuadrosIntegridade,
   countQuadrosValidados,
+  enrichMemorialDescQuadrosFromDocumento,
 } from "./integridade-quadros";
+import { loadLatestQuadroDocumento } from "./load-quadro-documento";
 import { ensureValidacaoPosImportacao } from "./sync-pos-importacao";
 import type {
   ProntidaoExportacaoView,
@@ -35,11 +37,21 @@ export async function fetchProntidaoExportacao(
     fetchLatestQuadroTecnico(empreendimentoId),
   ]);
 
-  const quadros = buildQuadrosIntegridade({
+  const quadrosBase = buildQuadrosIntegridade({
     blocos: dadosExtraidos.blocos,
     unidadesTotal: unidadesResumo.total,
     unidadesValidadas: unidadesResumo.validado,
   });
+
+  const memorialDescAusentes = quadrosBase
+    .filter((q) => ["qvi", "qvii", "qviii"].includes(q.bloco))
+    .every((q) => q.status === "ausente");
+
+  const documentoMemorial = memorialDescAusentes
+    ? await loadLatestQuadroDocumento(empreendimentoId)
+    : null;
+
+  const quadros = enrichMemorialDescQuadrosFromDocumento(quadrosBase, documentoMemorial);
 
   const { validados: quadrosValidados, total: quadrosTotal } = countQuadrosValidados(quadros);
 

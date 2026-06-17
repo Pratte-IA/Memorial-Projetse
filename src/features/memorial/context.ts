@@ -3,6 +3,7 @@ import {
   fmtNum,
   formatDateBr,
   normalizeLoteQuadraFields,
+  parseBrNumeric,
   parseLoteQuadra,
   stripLoteamentoPrefix,
   ufPorExtenso,
@@ -11,6 +12,7 @@ import {
   areaMetrosQuadradosPorExtenso,
   integerToPortuguese,
   matriculaPorExtenso,
+  valorMonetarioPorExtenso,
 } from "@/lib/numero-extenso";
 import { formatConfrontacoesTexto } from "@/features/empreendimentos/constants/cadastro-complementar";
 import {
@@ -19,9 +21,11 @@ import {
   resolveIncorporadoraEnderecoMemorial,
   resolveSociosAdministradores,
 } from "@/features/empreendimentos/mappers";
+import { loadLatestQuadroDocumento } from "@/features/empreendimentos/load-quadro-documento";
 import { aggregateCondominioPavimentos } from "@/features/quadro-nbr/mapper";
 import { supabase } from "@/lib/supabase/client";
 
+import { buildListaOrcamentoUnidades } from "./orcamento-lista";
 import type { MemorialContextData } from "./types";
 
 function dash(value: string | null | undefined): string {
@@ -61,14 +65,26 @@ function confrontacao(
   };
 }
 
-function valorMonetarioExtenso(valor: number): string {
-  const reais = Math.floor(valor);
-  const centavos = Math.round((valor - reais) * 100);
-  let texto = `${integerToPortuguese(reais)} ${reais === 1 ? "real" : "reais"}`;
-  if (centavos > 0) {
-    texto += ` e ${integerToPortuguese(centavos)} ${centavos === 1 ? "centavo" : "centavos"}`;
+function formatMoeda(valor: number): { texto: string; extenso: string } {
+  return {
+    texto: `R$ ${fmtNum(valor, 2)}`,
+    extenso: valorMonetarioPorExtenso(valor),
+  };
+}
+
+function parseExtraNumero(raw: string | undefined): number {
+  const parsed = parseBrNumeric(raw ?? "");
+  return parsed ?? NaN;
+}
+
+function formatMesReferenciaCub(raw: string | undefined): string {
+  const trimmed = raw?.trim();
+  if (!trimmed) return "—";
+  const parts = trimmed.split("/");
+  if (parts[0] && !/^\d+$/.test(parts[0])) {
+    parts[0] = parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
   }
-  return texto;
+  return parts.join("/");
 }
 
 export async function fetchMemorialContext(empreendimentoId: number): Promise<MemorialContextData> {
@@ -226,32 +242,37 @@ export async function fetchMemorialContext(empreendimentoId: number): Promise<Me
   const areasComuns =
     espacosRows.length > 0 ? espacosRows.map((e) => e.nome).join(", ") : "—";
 
-  const { data: dadosExtraidos } = await supabase
-    .from("dados_extraidos")
-    .select("campo, valor")
-    .eq("empreendimento_id", empreendimentoId)
-    .in("campo", [
-      "incorporador_endereco",
-      "projeto_lote_quadra",
-      "custo_global_construcao_13",
-      "custo_unitario_obra_14",
-      "responsavel_obra_nome",
-      "responsavel_obra_crea",
-      "responsavel_obra_art",
-      "responsavel_obra_formacao",
-      "orgao_aprovacao",
-      "prefeitura_aprovacao",
-      "cartorio_cidade",
-    ]);
+  const [{ data: dadosExtraidos }, documentoQuadro] = await Promise.all([
+    supabase
+      .from("dados_extraidos")
+      .select("campo, valor")
+      .eq("empreendimento_id", empreendimentoId)
+      .in("campo", [
+        "incorporador_endereco",
+        "projeto_lote_quadra",
+        "custo_global_construcao_13",
+        "custo_unitario_obra_14",
+        "designacao_padrao",
+        "padrao_acabamento",
+        "sindicato_cub",
+        "cub_mes",
+        "responsavel_obra_nome",
+        "responsavel_obra_crea",
+        "responsavel_obra_art",
+        "responsavel_obra_formacao",
+        "orgao_aprovacao",
+        "prefeitura_aprovacao",
+        "cartorio_cidade",
+      ]),
+    loadLatestQuadroDocumento(empreendimentoId),
+  ]);
 
   const extraMap = new Map(
     (dadosExtraidos ?? []).map((row) => [row.campo, row.valor?.trim() ?? ""]),
   );
 
-  const custoGlobalRaw = extraMap.get("custo_global_construcao_13") ?? "";
-  const custoGlobalNum = custoGlobalRaw
-    ? Number(custoGlobalRaw.replace(/\./g, "").replace(",", "."))
-    : NaN;
+  const custoGlobalNum = parseExtraNumero(extraMap.get("custo_global_construcao_13"));
+  const custoMetroNum = parseExtraNumero(extraMap.get("custo_unitario_obra_14"));
 
   const enderecoIncorporadora = resolveIncorporadoraEnderecoMemorial(
     incorporadora?.endereco ?? null,
@@ -304,14 +325,15 @@ export async function fetchMemorialContext(empreendimentoId: number): Promise<Me
   const unidades = dados?.unidades ?? null;
   const vagas = dados?.vagas ?? null;
 
-  const orcamentoValor =
+  const orcamentoGlobal =
     Number.isFinite(custoGlobalNum) && custoGlobalNum > 0
-      ? fmtNum(custoGlobalNum, 2)
-      : "—";
-  const orcamentoValorExtenso =
-    Number.isFinite(custoGlobalNum) && custoGlobalNum > 0
-      ? valorMonetarioExtenso(custoGlobalNum)
-      : "—";
+      ? formatMoeda(custoGlobalNum)
+      : { texto: "R$ —", extenso: "—" };
+  const orcamentoMetro =
+    Number.isFinite(custoMetroNum) && custoMetroNum > 0
+      ? formatMoeda(custoMetroNum)
+      : { texto: "R$ —", extenso: "—" };
+  const listaOrcamentoUnidades = buildListaOrcamentoUnidades(documentoQuadro);
 
   return {
     incorporadora: {
@@ -344,7 +366,7 @@ export async function fetchMemorialContext(empreendimentoId: number): Promise<Me
       qtdUnidadesExtenso: countExtenso(unidades),
       qtdVagas: vagas != null ? String(vagas) : "—",
       qtdVagasExtenso: countExtenso(vagas),
-      qtdEtapas: torres != null ? String(torres) : "—",
+      qtdEtapas: countExtenso(torres),
       areasComuns,
       torres: torres != null ? String(torres) : "—",
       pavimentos: pavimentos != null ? String(pavimentos) : "—",
@@ -410,17 +432,17 @@ export async function fetchMemorialContext(empreendimentoId: number): Promise<Me
       art: dash(extraMap.get("responsavel_obra_art")),
     },
     orcamento: {
-      valor: orcamentoValor === "—" ? "R$ —" : `R$ ${orcamentoValor}`,
-      valorExtenso: orcamentoValorExtenso,
-      cubMultiplicador: "—",
-      cubMultiplicadorExtenso: "—",
-      cubValor: "—",
-      cubValorExtenso: "—",
-      mesReferencia: "—",
-      anoReferencia: "—",
-      regiaoCub: "Paraná",
+      valor: orcamentoGlobal.texto,
+      valorExtenso: orcamentoGlobal.extenso,
+      cubDesignacao: dash(extraMap.get("designacao_padrao")),
+      padraoAcabamento: dash(extraMap.get("padrao_acabamento")),
+      mesReferenciaCub: formatMesReferenciaCub(extraMap.get("cub_mes")),
+      sindicatoCub: dash(extraMap.get("sindicato_cub")),
+      custoMetroQuadrado: orcamentoMetro.texto,
+      custoMetroQuadradoExtenso: orcamentoMetro.extenso,
     },
     areasPavimentos,
     listaUnidades: "",
+    listaOrcamentoUnidades,
   };
 }

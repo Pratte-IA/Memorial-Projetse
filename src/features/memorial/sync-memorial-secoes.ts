@@ -87,8 +87,14 @@ export async function syncMemorialSecoesWithClausulas(
   let changed = false;
 
   const linkedClausulaIds = new Set<number>();
+  const memorialTemExtras = memorial.secoes.some((s) => s.clausulaId === null);
+  let proximaOrdemExtra =
+    memorial.secoes.reduce((max, s) => Math.max(max, s.ordem), 0) + 1;
 
   for (const secao of memorial.secoes) {
+    // Cláusulas extras deste memorial não são reconciliadas com a biblioteca padrão.
+    if (secao.clausulaId === null) continue;
+
     const clausula = findClausulaForSecao(secao.titulo, secao.clausulaId, publicadas);
     if (clausula) linkedClausulaIds.add(clausula.id);
 
@@ -100,8 +106,8 @@ export async function syncMemorialSecoesWithClausulas(
       clausula_id?: number;
     } = {};
 
-    if (secao.titulo !== clausula.titulo) patch.titulo = clausula.titulo;
-    if (secao.ordem !== clausula.ordem) patch.ordem = clausula.ordem;
+    if (!memorialTemExtras && secao.titulo !== clausula.titulo) patch.titulo = clausula.titulo;
+    if (!memorialTemExtras && secao.ordem !== clausula.ordem) patch.ordem = clausula.ordem;
     if (secao.clausulaId !== clausula.id) patch.clausula_id = clausula.id;
 
     if (Object.keys(patch).length === 0) continue;
@@ -122,7 +128,7 @@ export async function syncMemorialSecoesWithClausulas(
       titulo: clausula.titulo,
       conteudo: null,
       status: "nao_gerada",
-      ordem: clausula.ordem,
+      ordem: memorialTemExtras ? proximaOrdemExtra++ : clausula.ordem,
     });
   }
 

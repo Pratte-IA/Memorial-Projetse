@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/features/auth/use-auth";
-import { DataRow } from "@/features/empreendimentos/components/detail-ui";
 import { useUnidades } from "@/features/unidades/hooks";
 import {
   ORDEM_PAVIMENTOS,
@@ -15,11 +14,26 @@ import {
   agruparUnidadesPorTorrePavimento,
   gerarDescricaoUnidade,
 } from "@/features/unidades/utils/texto-unidade";
-import { CheckCircle2, FileText, Loader2, Pencil, RefreshCw, Save, Sparkles, X } from "lucide-react";
+import { CheckCircle2, FileText, Loader2, Pencil, RefreshCw, Save, Sparkles, Trash2, X } from "lucide-react";
 
-import { isUnidadesSection, formatSecaoSumarioNumero } from "../status";
+import { AdicionarClausulaExtraDialog } from "./adicionar-clausula-extra-dialog";
+import { SecaoPainelDados } from "../secao-painel-dados";
+import { isSecaoExtra, isUnidadesSection, formatSecaoSumarioNumero, maxNumeroClausulaMemorial } from "../status";
 import type { SecaoRecord } from "../types";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  useAddSecaoExtra,
+  useDeleteSecaoExtra,
   useEnsureMemorial,
   useGenerateMemorialCompleto,
   useMemorial,
@@ -45,6 +59,8 @@ export function MemorialTab({ empreendimentoId, empreendimentoNome }: MemorialTa
   const saveMutation = useSaveSecao(empreendimentoId);
   const statusMutation = useUpdateSecaoStatus(empreendimentoId);
   const completoMutation = useGenerateMemorialCompleto(empreendimentoId);
+  const addExtraMutation = useAddSecaoExtra(empreendimentoId);
+  const deleteExtraMutation = useDeleteSecaoExtra(empreendimentoId);
 
   const [secaoId, setSecaoId] = useState<number | null>(null);
   const [conteudoLocal, setConteudoLocal] = useState("");
@@ -170,6 +186,49 @@ export function MemorialTab({ empreendimentoId, empreendimentoNome }: MemorialTa
     }
   };
 
+  const adicionarClausulaExtra = async (input: {
+    titulo: string;
+    conteudo: string;
+    numeroClausula: number;
+  }) => {
+    if (!memorial || !empreendimentoId || !membership) return;
+    try {
+      const novaSecaoId = await addExtraMutation.mutateAsync({
+        memorialId: memorial.id,
+        empreendimentoId,
+        organizationId: membership.organization_id,
+        titulo: input.titulo,
+        conteudo: input.conteudo,
+        numeroClausula: input.numeroClausula,
+      });
+      setSecaoId(novaSecaoId);
+      toast.success("Cláusula extra adicionada.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Não foi possível adicionar a cláusula extra.",
+      );
+    }
+  };
+
+  const removerClausulaExtra = async () => {
+    if (!secao || !memorial || !empreendimentoId || !membership) return;
+    try {
+      await deleteExtraMutation.mutateAsync({
+        secaoId: secao.id,
+        memorialId: memorial.id,
+        empreendimentoId,
+        organizationId: membership.organization_id,
+        titulo: secao.titulo,
+      });
+      setSecaoId(null);
+      toast.success("Cláusula extra removida.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Não foi possível remover a cláusula extra.",
+      );
+    }
+  };
+
   if (empreendimentoId === null) {
     return (
       <Card className="p-8 border-border shadow-none text-center text-sm text-muted-foreground">
@@ -230,7 +289,11 @@ export function MemorialTab({ empreendimentoId, empreendimentoNome }: MemorialTa
   };
 
   const isUnidades = isUnidadesSection(secao.titulo);
+  const isExtra = isSecaoExtra(secao);
   const unidadesLista = unidades ?? [];
+  const maxNumeroClausula = maxNumeroClausulaMemorial(secoes);
+  const defaultNumeroExtra =
+    secao.ordem > 0 ? Math.min(secao.ordem + 1, maxNumeroClausula + 1) : 1;
 
   return (
     <div className="grid grid-cols-12 gap-5 min-w-0">
@@ -256,12 +319,26 @@ export function MemorialTab({ empreendimentoId, empreendimentoNome }: MemorialTa
               <span className="text-[11px] text-mono-tabular text-muted-foreground/70 pt-0.5 w-5 shrink-0">
                 {formatSecaoSumarioNumero(s.ordem)}
               </span>
-              <span className="flex-1 leading-tight">{s.titulo}</span>
+              <span className="flex-1 leading-tight">
+                {s.titulo}
+                {isSecaoExtra(s) ? (
+                  <span className="ml-1.5 text-[10px] uppercase tracking-wide text-[var(--color-atencao)]">
+                    Extra
+                  </span>
+                ) : null}
+              </span>
               <SectionDot status={s.status} />
             </button>
           ))}
         </nav>
-        <div className="mt-4 pt-4 border-t border-border">
+        <div className="mt-4 pt-4 border-t border-border space-y-2">
+          <AdicionarClausulaExtraDialog
+            defaultNumero={defaultNumeroExtra}
+            maxNumero={maxNumeroClausula}
+            disabled={addExtraMutation.isPending}
+            isPending={addExtraMutation.isPending}
+            onConfirm={adicionarClausulaExtra}
+          />
           <Button
             className="w-full"
             size="sm"
@@ -284,22 +361,62 @@ export function MemorialTab({ empreendimentoId, empreendimentoNome }: MemorialTa
             <div className="flex items-center gap-2 shrink-0">
               <StatusBadge status={secao.status} />
               <span className="text-sm font-medium whitespace-nowrap">{secao.titulo}</span>
+              {isExtra ? (
+                <span className="text-[10px] uppercase tracking-wide text-[var(--color-atencao)]">
+                  Extra
+                </span>
+              ) : null}
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
-              <Button
-                size="sm"
-                variant="ghost"
-                className="whitespace-nowrap"
-                disabled={regenerateMutation.isPending}
-                onClick={() => void regenerar()}
-              >
-                {regenerateMutation.isPending ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-3.5 w-3.5" />
-                )}
-                Regenerar
-              </Button>
+              {!isExtra ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="whitespace-nowrap"
+                  disabled={regenerateMutation.isPending}
+                  onClick={() => void regenerar()}
+                >
+                  {regenerateMutation.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  )}
+                  Regenerar
+                </Button>
+              ) : (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="whitespace-nowrap text-[var(--color-alerta)] hover:text-[var(--color-alerta)]"
+                      disabled={deleteExtraMutation.isPending}
+                    >
+                      {deleteExtraMutation.isPending ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
+                      Remover
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Remover cláusula extra?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        A cláusula &quot;{secao.titulo}&quot; será excluída deste memorial. O modelo
+                        padrão não será afetado.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => void removerClausulaExtra()}>
+                        Remover
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
               {modoEdicao ? (
                 <>
                   <Button
@@ -413,10 +530,20 @@ export function MemorialTab({ empreendimentoId, empreendimentoNome }: MemorialTa
             ) : secao.status === "nao_gerada" && !conteudoLocal && !modoEdicao ? (
               <div className="text-center py-16 text-muted-foreground">
                 <FileText className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                <div className="text-sm">Esta seção ainda não foi gerada.</div>
-                <Button className="mt-4" size="sm" onClick={() => void regenerar()}>
-                  <Sparkles className="h-3.5 w-3.5" /> Gerar seção
-                </Button>
+                <div className="text-sm">
+                  {isExtra
+                    ? "Esta cláusula extra ainda não possui conteúdo."
+                    : "Esta seção ainda não foi gerada."}
+                </div>
+                {isExtra ? (
+                  <Button className="mt-4" size="sm" onClick={() => setModoEdicao(true)}>
+                    <Pencil className="h-3.5 w-3.5" /> Escrever cláusula
+                  </Button>
+                ) : (
+                  <Button className="mt-4" size="sm" onClick={() => void regenerar()}>
+                    <Sparkles className="h-3.5 w-3.5" /> Gerar seção
+                  </Button>
+                )}
               </div>
             ) : modoEdicao ? (
               <Textarea
@@ -440,42 +567,13 @@ export function MemorialTab({ empreendimentoId, empreendimentoNome }: MemorialTa
             Dados usados na seção
           </div>
           <ul className="space-y-2.5 text-sm">
-            {isUnidades ? (
-              <>
-                <DataRow label="Unidades" value={`${unidadesLista.length}`} />
-                <DataRow
-                  label="Validadas"
-                  value={`${unidadesLista.filter((u) => u.status === "validado").length}`}
-                />
-                <DataRow
-                  label="Pendentes"
-                  value={`${unidadesLista.filter((u) => u.status === "pendente").length}`}
-                />
-              </>
-            ) : secao.titulo.includes("Propriedade") && context ? (
-              <>
-                <DataRow label="Lote" value={context.imovel.loteNumero} />
-                <DataRow label="Quadra" value={context.imovel.quadraNumero} />
-                <DataRow label="Loteamento" value={context.imovel.loteamento} />
-                <DataRow label="Comarca" value={context.imovel.comarca} />
-                <DataRow label="Área" value={context.imovel.area} />
-                <DataRow label="Matrícula" value={context.imovel.matricula} />
-                <DataRow label="Cartório" value={context.imovel.cartorio} />
-              </>
-            ) : context ? (
-              <>
-                <DataRow label="Razão social" value={context.incorporadora.razaoSocial} />
-                <DataRow label="CNPJ" value={context.incorporadora.cnpj} />
-                <DataRow label="Endereço" value={context.incorporadora.endereco} />
-                <DataRow
-                  label="Cidade/UF"
-                  value={`${context.incorporadora.cidade}/${context.incorporadora.uf}`}
-                />
-                <DataRow label="Representante" value={context.incorporadora.representante.nome} />
-              </>
-            ) : (
-              <li className="text-xs text-muted-foreground">Carregando contexto…</li>
-            )}
+            <SecaoPainelDados
+              titulo={secao.titulo}
+              context={context}
+              isExtra={isExtra}
+              isUnidades={isUnidades}
+              unidadesLista={unidadesLista}
+            />
           </ul>
         </div>
         <div className="h-px bg-border" />

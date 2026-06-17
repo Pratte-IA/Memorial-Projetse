@@ -531,9 +531,8 @@ export function parseLinhaResumoFromRow(
       { field: "areaPrivativaAcessoria", col: 7 },
       { field: "areaComum", col: 4 },
       { field: "areaTotal", col: 5 },
-      { field: "fracaoTerrenoM2", col: 6 },
-      { field: "fracaoTerrenoPercentual", col: 8 },
-      { field: "fracaoPredial", col: 9 },
+      { field: "fracaoTerrenoPercentual", col: 9 },
+      { field: "fracaoTerrenoM2", col: 10 },
       { field: "valorUnidade", col: 11 },
     ];
     for (const { field, col } of fields) {
