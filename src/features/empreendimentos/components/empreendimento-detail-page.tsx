@@ -15,7 +15,6 @@ import { DadosValidadosTab } from "./dados-validados-tab";
 import { UploadQuadroTab } from "./upload-quadro-tab";
 import { Mini } from "./detail-ui";
 import { ExportacoesTab } from "./exportacoes-tab";
-import { HistoricoTab } from "./historico-tab";
 import { VisaoGeralTab } from "./visao-geral-tab";
 
 interface EmpreendimentoDetailPageProps {
@@ -127,9 +126,6 @@ export function EmpreendimentoDetailPage({ emp }: EmpreendimentoDetailPageProps)
             empreendimentoId={/^\d+$/.test(emp.id) ? Number(emp.id) : null}
             empreendimentoNome={emp.nome}
           />
-        )}
-        {aba === "historico" && (
-          <HistoricoTab empreendimentoId={/^\d+$/.test(emp.id) ? Number(emp.id) : null} />
         )}
       </div>
     </>

@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { ensureClausulasMemorialPadrao } from "@/features/memorial/ensure-clausulas-padrao";
+
 import {
   createModeloTimbrado,
   deleteModelo,
@@ -60,7 +62,10 @@ export function useDeleteModelo(organizationId: number | null) {
 export function useClausulas(organizationId: number | null) {
   return useQuery({
     queryKey: organizationId ? clausulasQueryKey(organizationId) : ["clausulas", "disabled"],
-    queryFn: () => fetchClausulas(organizationId!),
+    queryFn: async () => {
+      await ensureClausulasMemorialPadrao(organizationId!);
+      return fetchClausulas(organizationId!);
+    },
     enabled: organizationId !== null && organizationId > 0,
   });
 }

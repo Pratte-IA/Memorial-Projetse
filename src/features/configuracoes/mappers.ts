@@ -1,6 +1,6 @@
 import type { OrgRole } from "@/features/auth/types";
 
-import type { ExportPrefs, OrganizationSettings, OrgMemberRecord } from "./types";
+import type { ExportPrefs, MemberStatus, OrganizationSettings, OrgMemberRecord } from "./types";
 
 type SettingsJson = {
   razao_social?: string;
@@ -69,16 +69,17 @@ type MemberRow = {
   role: string;
   status: string;
   profile_id: number;
-  profiles: { full_name: string; email: string } | null;
+  profiles: { full_name: string; email: string; user_id: string } | null;
 };
 
 export function mapRowToMember(row: MemberRow): OrgMemberRecord {
   return {
     id: row.id,
     profileId: row.profile_id,
+    userId: row.profiles?.user_id ?? "",
     fullName: row.profiles?.full_name ?? "—",
     email: row.profiles?.email ?? "—",
     role: row.role as OrgRole,
-    status: row.status,
+    status: row.status as MemberStatus,
   };
 }

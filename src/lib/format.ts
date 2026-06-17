@@ -38,6 +38,12 @@ export function fmtInt(value: number): string {
   return new Intl.NumberFormat("pt-BR").format(Math.round(value));
 }
 
+/** Extrai cidade e UF de valores como "Cascavel/PR". */
+export function parseCidadeUf(raw: string): { cidade: string; uf: string } {
+  const parts = raw.split("/").map((s) => s.trim());
+  return { cidade: parts[0] ?? "", uf: parts[1] ?? "" };
+}
+
 function isEmptyField(value: string): boolean {
   const trimmed = value.trim();
   return !trimmed || trimmed === "—";

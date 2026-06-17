@@ -17,6 +17,23 @@ export function extractVariaveisFromTemplate(template: string): string[] {
   return [...new Set([...matches].map((match) => match[1].trim()))];
 }
 
+export function wrapTextRangeWithAsterisks(
+  text: string,
+  start: number,
+  end: number,
+): { next: string; selectionStart: number; selectionEnd: number } | null {
+  if (start === end) return null;
+
+  const selected = text.slice(start, end);
+  const wrapped = `*${selected}*`;
+
+  return {
+    next: text.slice(0, start) + wrapped + text.slice(end),
+    selectionStart: start + 1,
+    selectionEnd: start + 1 + selected.length,
+  };
+}
+
 export function resolveTimbradoContentType(fileName: string, fileType?: string): string {
   const ext = fileName.slice(fileName.lastIndexOf(".")).toLowerCase();
   if (ext === ".pdf") return "application/pdf";

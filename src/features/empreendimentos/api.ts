@@ -13,6 +13,7 @@ import {
   normalizeLoteQuadraFields,
   parseBrDate,
   parseBrNumeric,
+  parseCidadeUf,
   parseLoteQuadra,
 } from "@/lib/format";
 import { formatDateBr } from "./mappers";
@@ -268,6 +269,7 @@ export async function fetchEmpreendimentoDetail(id: number): Promise<Empreendime
       "projeto_data_aprovacao",
       "rt_art",
       "cartorio_cidade",
+      "projeto_cidade_uf",
       "responsavel_obra_nome",
       "responsavel_obra_crea",
       "responsavel_obra_art",
@@ -319,6 +321,19 @@ export async function fetchEmpreendimentoDetail(id: number): Promise<Empreendime
 
     if (dado.campo === "cartorio_cidade" && dado.valor?.trim()) {
       view.cartorioCidade = dado.valor.trim();
+    }
+
+    if (dado.campo === "projeto_cidade_uf" && dado.valor?.trim()) {
+      const { cidade, uf } = parseCidadeUf(dado.valor);
+      if (cidade) {
+        view.cidade = cidade;
+        view.imovel.cidade = cidade;
+        view.imovel.comarca = cidade;
+      }
+      if (uf) {
+        view.uf = uf;
+        if (view.imovel.estado === "—") view.imovel.estado = uf;
+      }
     }
 
     if (dado.campo === "responsavel_obra_nome" && dado.valor?.trim()) {

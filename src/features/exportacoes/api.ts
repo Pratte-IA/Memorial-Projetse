@@ -1,4 +1,7 @@
+import { fetchClausulas } from "@/features/documentos/api";
 import { fetchMemorial } from "@/features/memorial/api";
+import { fetchMemorialContext } from "@/features/memorial/context";
+import { resolveMemorialForExport } from "@/features/memorial/engine";
 import { fetchUnidades } from "@/features/unidades/api";
 import {
   downloadModeloTimbrado,
@@ -8,6 +11,7 @@ import { supabase } from "@/lib/supabase/client";
 import type { Json } from "@/lib/supabase/types";
 
 import { buildMemorialDocument } from "./build-document";
+import { buildMadridBoldContext } from "./memorial-bold";
 import { DOCUMENTOS_EXPORTADOS_BUCKET } from "./constants";
 import { createDocxBlob } from "./generators";
 import { createPdfBlobWithTimbrado } from "./pdf-timbrado";
@@ -123,12 +127,19 @@ export async function exportDocument(input: ExportDocumentInput): Promise<Export
     throw new Error("Memorial não encontrado. Gere o memorial antes de exportar.");
   }
 
-  const unidades = await fetchUnidades(input.empreendimentoId);
+  const [unidades, memorialContext, clausulas] = await Promise.all([
+    fetchUnidades(input.empreendimentoId),
+    fetchMemorialContext(input.empreendimentoId),
+    fetchClausulas(input.organizationId),
+  ]);
+  const madridBold = buildMadridBoldContext(memorialContext);
+  const memorialForExport = resolveMemorialForExport(memorial, clausulas, memorialContext);
   const memorialDocument = buildMemorialDocument({
     empreendimentoNome: input.empreendimentoNome,
-    memorial,
+    memorial: memorialForExport,
     tipo: input.tipo,
     unidades,
+    madridBold,
   });
 
   let blob: Blob;

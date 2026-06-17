@@ -17,7 +17,7 @@ const TIMBRADO_MARGINS = {
 } as const;
 
 const FONT_SIZE = 10;
-const LINE_HEIGHT = 12;
+const LINE_HEIGHT = 17;
 
 function resolveTemplatePageIndex(contentPageIndex: number, templatePageCount: number): number {
   if (templatePageCount <= 1) return 0;

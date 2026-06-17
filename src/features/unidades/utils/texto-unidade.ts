@@ -99,11 +99,11 @@ function formatTerrenoExclusivo(u: UnidadeTextoInput): string {
         : u.garagem;
 
   if (total > 0 && u.garden > 0 && u.garagem > 0) {
-    return `, com área de terreno exclusiva de ${fmtNum(total, 2)} m² (correspondente a ${fmtNum(u.garden, 2)} m² sendo área de garden e ${fmtNum(u.garagem, 2)} m² de área de garagem)`;
+    return `, com área de terreno exclusiva de *${fmtNum(total, 2)} m²* (correspondente a ${fmtNum(u.garden, 2)} m² sendo área de garden e ${fmtNum(u.garagem, 2)} m² de área de garagem)`;
   }
 
   if (total > 0) {
-    return `, com área de terreno exclusiva de ${fmtNum(total, 2)} m² (correspondente à área de garagem)`;
+    return `, com área de terreno exclusiva de *${fmtNum(total, 2)} m²* (correspondente à área de garagem)`;
   }
 
   if (u.tipo === "Garden") {
@@ -122,15 +122,15 @@ export function gerarDescricaoUnidade(
   const numeroExt = numeroExtensoLongo(numero);
   const localPav = u.pavimento === "Térreo" ? "Pavimento térreo" : u.pavimento;
   const enderecoBase =
-    "situar-se-á na Rua Ilhas Canárias, no 359, Bairro Interlagos, nesta Cidade e Comarca de CASCAVEL, Estado do PARANÁ";
-  const areas = `terá a área construída total de ${fmtNum(u.areaTotal, 3)} m², sendo ${fmtNum(u.areaPrivativa, 2)} m² de área privativa e ${fmtNum(u.areaComum, 3)} m² de área de uso comum`;
+    "situar-se-á na *Rua Ilhas Canárias, no 359, Bairro Interlagos*, nesta Cidade e Comarca de *CASCAVEL*, Estado do *PARANÁ*";
+  const areas = `terá a área construída total de *${fmtNum(u.areaTotal, 3)} m²*, sendo ${fmtNum(u.areaPrivativa, 2)} m² de área privativa e ${fmtNum(u.areaComum, 3)} m² de área de uso comum`;
   const terreno = formatTerrenoExclusivo(u);
-  const fracao = `, correspondendo-lhe a fração territorial de ${u.fracao}`;
+  const fracao = `, correspondendo-lhe a fração territorial de *${u.fracao}*`;
   const confront = `Confrontar-se-á conforme: ${u.confrontacoes}`;
-  const vaga = `; terá ainda, o direito de uso privativo e exclusivo de 01 vaga descoberta (${u.vaga}), localizada no pavimento térreo do Condomínio`;
+  const vaga = `; terá ainda, o direito de uso privativo e exclusivo de *01 vaga descoberta (${u.vaga})*, localizada no pavimento térreo do Condomínio`;
   const posicao = u.posicao?.trim();
   const localizacao = posicao ? `, ${posicao}` : "";
-  return `${u.nome.toUpperCase()} (${numeroExt}), localizar-se-á no ${localPav} da ${u.torre} do ${emp.nome}${localizacao}, ${enderecoBase}, ${areas}${terreno}${fracao}. ${confront}${vaga}; tudo conforme alocado no referido projeto arquitetônico.`;
+  return `${u.nome.toUpperCase()} (${numeroExt}), localizar-se-á no ${localPav} da *${u.torre}* do *${emp.nome}*${localizacao}, ${enderecoBase}, ${areas}${terreno}${fracao}. ${confront}${vaga}; tudo conforme alocado no referido projeto arquitetônico.`;
 }
 
 export const ORDEM_PAVIMENTOS = [

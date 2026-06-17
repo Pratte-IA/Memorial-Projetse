@@ -482,7 +482,7 @@ export const clausulas: Clausula[] = [
       "empreendimento.nome",
     ],
     template:
-      "{{incorporadora.razaoSocial}}, sociedade de propósito específico, com sede {{incorporadora.endereco}}, na cidade de {{incorporadora.cidade}}/{{incorporadora.uf}}, inscrita no CNPJ/MF sob o nº {{incorporadora.cnpj}}, representada por seu sócio administrador: {{incorporadora.representante.nome}}, brasileiro, {{incorporadora.representante.estadoCivil}}, {{incorporadora.representante.profissao}}, portador da Cédula de Identidade RG nº {{incorporadora.representante.rg}} {{incorporadora.representante.orgaoEmissor}} e inscrito no CPF/MF sob nº {{incorporadora.representante.cpf}}; conforme {{incorporadora.certidao}} em anexo; na qualidade de Incorporadora, convenciona este Instrumento Particular de Memorial de Incorporação, Convenção Condominial, Memorial Descritivo do Empreendimento e Regimento Interno do {{empreendimento.nome}}, mediante as cláusulas a seguir.",
+      "{{incorporadora.razaoSocial}}, sociedade de propósito específico, com sede {{incorporadora.endereco}}, na cidade de {{incorporadora.cidade}}/{{incorporadora.uf}}, inscrita no CNPJ/MF sob o nº {{incorporadora.cnpj}}, representada por seu sócio administrador: {{incorporadora.representante.nome}}, brasileiro, {{incorporadora.representante.estadoCivil}}, {{incorporadora.representante.profissao}}, portador da Cédula de Identidade RG nº {{incorporadora.representante.rg}} {{incorporadora.representante.orgaoEmissor}} e inscrito no CPF/MF sob nº {{incorporadora.representante.cpf}}; conforme {{incorporadora.certidao}} em anexo; na qualidade de Incorporadora, convenciona este Instrumento Particular de Memorial de Incorporação, Convenção Condominial, Memorial Descritivo do Empreendimento e Regimento Interno do *{{empreendimento.nome}}*, mediante as cláusulas a seguir.",
   },
   {
     id: "c2",
@@ -507,7 +507,7 @@ export const clausulas: Clausula[] = [
       "imovel.cartorio",
     ],
     template:
-      "A Incorporadora é proprietária, livre de ônus e de ações reais ou pessoais reipersecutórias, o que declara sob as penas da Lei, do imóvel constituído pelo Lote nº {{imovel.loteNumero}} ({{imovel.loteNumeroExtenso}}), com área de {{imovel.area}} ({{imovel.areaExtenso}}), da Quadra nº {{imovel.quadraNumero}} ({{imovel.quadraNumeroExtenso}}), no Loteamento {{imovel.loteamento}}, situado na comarca de {{imovel.comarca}} no estado do {{imovel.ufExtenso}}, sem benfeitorias, que confronta-se, {{imovel.confrontacoes}}. Atualmente registrado na matrícula {{imovel.matricula}} ({{imovel.matriculaExtenso}}), do {{imovel.cartorio}}.",
+      "A Incorporadora é proprietária, livre de ônus e de ações reais ou pessoais reipersecutórias, o que declara sob as penas da Lei, do imóvel constituído pelo Lote nº {{imovel.loteNumero}} ({{imovel.loteNumeroExtenso}}), com área de {{imovel.area}} ({{imovel.areaExtenso}}), da Quadra nº {{imovel.quadraNumero}} ({{imovel.quadraNumeroExtenso}}), no Loteamento *{{imovel.loteamento}}*, situado na comarca de {{imovel.comarca}} no estado do {{imovel.ufExtenso}}, sem benfeitorias, que confronta-se, {{imovel.confrontacoes}}. Atualmente registrado na matrícula *{{imovel.matricula}}* ({{imovel.matriculaExtenso}}), do {{imovel.cartorio}}.",
   },
   {
     id: "c3",
@@ -600,7 +600,7 @@ export const clausulas: Clausula[] = [
       "listaOrcamentoUnidades",
     ],
     template:
-      "De acordo com a referida Norma Brasileira nº 12.721/2006, o custo da edificação foi orçado em {{orcamento.valor}} ({{orcamento.valorExtenso}}), com base no Custo Unitário Básico (CUB) {{orcamento.cubDesignacao}} padrão {{orcamento.padraoAcabamento}} do mês de {{orcamento.mesReferenciaCub}}, fornecido pelo {{orcamento.sindicatoCub}}, atribuindo ao metro quadrado da construção o valor de {{orcamento.custoMetroQuadrado}} ({{orcamento.custoMetroQuadradoExtenso}}), sendo que o custo de cada unidade autônoma foi orçado da mesma forma: {{listaOrcamentoUnidades}}",
+      "De acordo com a referida Norma Brasileira nº 12.721/2006, o custo da edificação foi orçado em *{{orcamento.valor}}* ({{orcamento.valorExtenso}}), com base no Custo Unitário Básico (CUB) *{{orcamento.cubDesignacao}}* padrão {{orcamento.padraoAcabamento}} do mês de {{orcamento.mesReferenciaCub}}, fornecido pelo {{orcamento.sindicatoCub}}, atribuindo ao metro quadrado da construção o valor de *{{orcamento.custoMetroQuadrado}}* ({{orcamento.custoMetroQuadradoExtenso}}), sendo que o custo de cada unidade autônoma foi orçado da mesma forma: {{listaOrcamentoUnidades}}",
   },
   {
     id: "c7",
@@ -611,7 +611,7 @@ export const clausulas: Clausula[] = [
     status: "Publicada",
     variaveis: ["empreendimento.nome"],
     template:
-      "A destinação das unidades autônomas e tudo que às mesmas unidades se referirem, estão tratadas na Convenção Condominial e Regimento Interno do {{empreendimento.nome}}, doravante denominada exclusivamente Convenção, elaborada em cumprimento ao Artigo 9º, da citada Lei nº 4.591, de 16 de dezembro de 1964, conforme Cláusula a seguir.",
+      "A destinação das unidades autônomas e tudo que às mesmas unidades se referirem, estão tratadas na Convenção Condominial e Regimento Interno do *{{empreendimento.nome}}*, doravante denominada exclusivamente Convenção, elaborada em cumprimento ao Artigo 9º, da citada Lei nº 4.591, de 16 de dezembro de 1964, conforme Cláusula a seguir.",
   },
   {
     id: "c8",
@@ -708,7 +708,7 @@ Artigo 32. Fica eleito o foro da Comarca de Cascavel-PR para todo tipo de ação
     status: "Publicada",
     variaveis: ["empreendimento.nome", "empreendimento.qtdEtapas"],
     template:
-      "A incorporadora, utilizando-se do disposto no art. 6º, da Lei nº 4.864, de 29.11.1965, combinado com o art. 9º, parágrafo 4º, da citada Lei nº 4.591, de 1964, convenciona que a incorporação imobiliária do {{empreendimento.nome}}, será em {{empreendimento.qtdEtapas}} etapas, que serão aleatórias, dependendo da conclusão de cada uma das torres, conforme emissão do Habite-se.",
+      "A incorporadora, utilizando-se do disposto no art. 6º, da Lei nº 4.864, de 29.11.1965, combinado com o art. 9º, parágrafo 4º, da citada Lei nº 4.591, de 1964, convenciona que a incorporação imobiliária do *{{empreendimento.nome}}*, será em {{empreendimento.qtdEtapas}} etapas, que serão aleatórias, dependendo da conclusão de cada uma das torres, conforme emissão do Habite-se.",
   },
   {
     id: "c10",
@@ -729,9 +729,9 @@ Artigo 32. Fica eleito o foro da Comarca de Cascavel-PR para todo tipo de ação
     categoria: "Incorporação",
     resumo: "Declaração de regularidade fiscal e previdenciária da incorporadora.",
     status: "Publicada",
-    variaveis: [],
+    variaveis: ["empreendimento.nome"],
     template:
-      'De acordo com o que dispõe o Artigo 257, Inciso III, do Decreto Federal nº 3.408, de 6 de maio de 1999, publicado no Diário Oficial da União em 7 de maio de 1999, retificado conforme publicação no mesmo Diário em 12 de maio de 1999 (com a redação que lhe foi dada pelos Decretos Federais nº 3.265, de 29 de novembro de 1999 (DOU 30/11/1999), 3.298, de 20 de dezembro de 1999 (DOU 21/12/1999), 3.452, de 9 de maio de 2000 (DOU 09/05/2000) e 3.668, de 22 de novembro de 2000 (DOU 23/11/2000), e Item 5-III, da Ordem de Serviço nº 207, de 8 de abril de 1999, da Diretoria de Arrecadação e Fiscalização do Instituto Nacional do Seguro Social – INSS, publicada no Diário Oficial da União em 15 de abril de 1999, retificada conforme publicação no mesmo Diário em 16 e 19 de abril de 1999, combinado com os Artigos 29, Parágrafo Único, 30 e 32, alínea "f", da Lei Federal nº 4.591, de 16 de dezembro de 1964, a incorporadora declara, para fins de registro da Incorporação imobiliária do condomínio do Residencial Madrid, que está em dia com o recolhimento de contribuições à Previdência Social e que apresenta junto com este instrumento a Certidão Negativa de Débitos – CND, da Certidão Positiva de Débitos – CPD ou da Certidão Positiva de Débitos com Efeitos de Negativa – CPD-EM, do citado INSS.',
+      'De acordo com o que dispõe o Artigo 257, Inciso III, do Decreto Federal nº 3.408, de 6 de maio de 1999, publicado no Diário Oficial da União em 7 de maio de 1999, retificado conforme publicação no mesmo Diário em 12 de maio de 1999 (com a redação que lhe foi dada pelos Decretos Federais nº 3.265, de 29 de novembro de 1999 (DOU 30/11/1999), 3.298, de 20 de dezembro de 1999 (DOU 21/12/1999), 3.452, de 9 de maio de 2000 (DOU 09/05/2000) e 3.668, de 22 de novembro de 2000 (DOU 23/11/2000), e Item 5-III, da Ordem de Serviço nº 207, de 8 de abril de 1999, da Diretoria de Arrecadação e Fiscalização do Instituto Nacional do Seguro Social – INSS, publicada no Diário Oficial da União em 15 de abril de 1999, retificada conforme publicação no mesmo Diário em 16 e 19 de abril de 1999, combinado com os Artigos 29, Parágrafo Único, 30 e 32, alínea "f", da Lei Federal nº 4.591, de 16 de dezembro de 1964, a incorporadora declara, para fins de registro da Incorporação imobiliária do condomínio do *{{empreendimento.nome}}*, que está em dia com o recolhimento de contribuições à Previdência Social e que apresenta junto com este instrumento a Certidão Negativa de Débitos – CND, da Certidão Positiva de Débitos – CPD ou da Certidão Positiva de Débitos com Efeitos de Negativa – CPD-EM, do citado INSS.',
   },
   {
     id: "c12",
@@ -742,7 +742,7 @@ Artigo 32. Fica eleito o foro da Comarca de Cascavel-PR para todo tipo de ação
     status: "Publicada",
     variaveis: ["empreendimento.comarca"],
     template:
-      "Em face de tudo expresso, a incorporadora requer ao Registrador, do Terceiro Serviço de Registro de Imóveis da Comarca de {{empreendimento.comarca}} que promova os seguintes atos: primeiro, o registro da incorporação imobiliária; segundo, o registro da Convenção Condominial e Regimento Interno; não havendo necessidade de registrar a convenção na íntegra, mas resumida, fornecendo-lhe, em seguida, cópia deste instrumento e certidão probatória de todos os atos; terceiro, todos os demais atos necessários para o pleno registro deste instrumento.",
+      "Em face de tudo expresso, a incorporadora requer ao Registrador, do Terceiro Serviço de Registro de Imóveis da Comarca de {{empreendimento.comarca}} que promova os seguintes atos: *primeiro*, o registro da incorporação imobiliária; *segundo*, o registro da Convenção Condominial e Regimento Interno; não havendo necessidade de registrar a convenção na íntegra, mas resumida, fornecendo-lhe, em seguida, cópia deste instrumento e certidão probatória de todos os atos; *terceiro*, todos os demais atos necessários para o pleno registro deste instrumento.",
   },
 ];
 

@@ -142,7 +142,7 @@ function formatGrupoOrcamento(grupo: GrupoOrcamentoUnidade, index: number): stri
   const numerosTexto = formatListaNumeros(numeros);
   const torresTexto = torres ? ` ${torres}` : "";
 
-  return `${letraItem(index)}) ${labels.plural} ${numerosTexto}${torresTexto}: R$ ${valorFmt} (${extenso}) ${labels.sufixo};`;
+  return `${letraItem(index)}) *${labels.plural} ${numerosTexto}*${torresTexto}: R$ ${valorFmt} (${extenso}) ${labels.sufixo};`;
 }
 
 export function buildListaOrcamentoUnidades(documento: DocumentoNbrExtraido | null): string {

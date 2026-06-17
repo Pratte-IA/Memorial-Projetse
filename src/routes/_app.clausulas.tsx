@@ -11,7 +11,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { canManageOrg } from "@/features/auth/permissions";
 import { useAuth } from "@/features/auth/use-auth";
 import { EditarClausulaDialog } from "@/features/documentos/components/editar-clausula-dialog";
+import { ClausulaNegritoGuia } from "@/features/documentos/components/clausula-negrito-guia";
 import { useClausulas, useDuplicateClausula } from "@/features/documentos/hooks";
+import { renderClausulaTemplatePreview } from "@/features/documentos/render-clausula-template";
 import type { ClausulaRecord } from "@/features/documentos/types";
 
 export const Route = createFileRoute("/_app/clausulas")({
@@ -68,7 +70,7 @@ function Clausulas() {
     <>
       <PageHeader
         title="Biblioteca de Cláusulas"
-        subtitle="Blocos de texto padrão da Projetse utilizados na composição dos memoriais."
+        subtitle="Blocos de texto padrão da Projetse. Use *asteriscos* no template para negrito no PDF exportado."
         breadcrumb={[{ label: "Cláusulas" }]}
       />
 
@@ -166,8 +168,14 @@ function Clausulas() {
                     <p className="text-xs text-muted-foreground mt-1">{sel.resumo}</p>
                   </div>
                   <div className="p-8 min-h-[400px] space-y-5">
-                    <div className="text-sm leading-7 text-foreground whitespace-pre-wrap">
-                      {renderTemplate(sel.template)}
+                    <ClausulaNegritoGuia variant="compact" />
+                    <div>
+                      <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">
+                        Pré-visualização
+                      </div>
+                      <div className="text-sm leading-7 text-foreground whitespace-pre-wrap">
+                        {renderClausulaTemplatePreview(sel.template)}
+                      </div>
                     </div>
                     {sel.variaveis.length > 0 && (
                       <div className="pt-4 border-t border-border">
@@ -241,21 +249,5 @@ function Clausulas() {
         />
       )}
     </>
-  );
-}
-
-function renderTemplate(text: string) {
-  const parts = text.split(/(\{\{[^}]+\}\})/g);
-  return parts.map((p, i) =>
-    p.startsWith("{{") && p.endsWith("}}") ? (
-      <code
-        key={i}
-        className="px-1.5 py-0.5 mx-0.5 text-[12px] rounded bg-[var(--color-verde)]/10 text-[var(--color-verde-escuro)] border border-[var(--color-verde)]/20 font-mono"
-      >
-        {p}
-      </code>
-    ) : (
-      <span key={i}>{p}</span>
-    ),
   );
 }

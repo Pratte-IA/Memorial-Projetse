@@ -1,86 +1,145 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { KeyRound, MoreHorizontal, Pencil, Power, PowerOff, Trash2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
-import { CheckCircle2, Loader2 } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { ROLE_LABELS } from "@/features/auth/constants";
 import { canManageMembers } from "@/features/auth/permissions";
-import type { OrgRole } from "@/features/auth/types";
 import { useAuth } from "@/features/auth/use-auth";
 
-import { DEFAULT_ORGANIZATION_SETTINGS } from "../mappers";
+import { MEMBER_STATUS_LABELS } from "../constants";
 import {
+  useActivateOrganizationUser,
+  useDeactivateOrganizationUser,
+  useDeleteOrganizationUser,
   useOrganizationMembers,
-  useOrganizationSettings,
-  useSaveOrganizationSettings,
-  useUpdateMemberRole,
+  useUpdateMemberStatus,
 } from "../hooks";
-import type { OrganizationSettings } from "../types";
+import type { MemberStatus, OrgMemberRecord } from "../types";
+import { ExcluirUsuarioDialog } from "./excluir-usuario-dialog";
+import { UsuarioFormDialog } from "./usuario-form-dialog";
+import { UsuarioSenhaDialog } from "./usuario-senha-dialog";
 
-const ROLES: OrgRole[] = ["admin", "gestora", "responsavel_tecnica", "revisora"];
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .map((part) => part[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
+
+function statusBadgeVariant(status: MemberStatus): "default" | "secondary" | "destructive" {
+  if (status === "active") return "default";
+  if (status === "invited") return "secondary";
+  return "destructive";
+}
 
 export function ConfiguracoesPage() {
-  const { profile, role, organization, membership } = useAuth();
+  const { profile, role, organization, membership, user } = useAuth();
   const orgId = membership?.organization_id ?? null;
-
-  const { data: settings, isLoading: loadingSettings } = useOrganizationSettings(orgId);
-  const { data: members, isLoading: loadingMembers } = useOrganizationMembers(orgId);
-  const saveMutation = useSaveOrganizationSettings(orgId);
-  const roleMutation = useUpdateMemberRole(orgId);
-
-  const [form, setForm] = useState<OrganizationSettings>(DEFAULT_ORGANIZATION_SETTINGS);
-
-  useEffect(() => {
-    if (settings) setForm(settings);
-  }, [settings]);
-
-  const salvar = async () => {
-    if (!orgId) return;
-    try {
-      await saveMutation.mutateAsync({ organizationId: orgId, settings: form });
-      toast.success("Configurações salvas.");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível salvar.");
-    }
-  };
-
-  const alterarPapel = async (memberId: number, novoRole: OrgRole) => {
-    if (!orgId) return;
-    try {
-      await roleMutation.mutateAsync({ memberId, organizationId: orgId, role: novoRole });
-      toast.success("Papel atualizado.");
-    } catch {
-      toast.error("Não foi possível alterar o papel.");
-    }
-  };
-
   const isAdmin = canManageMembers(role);
+
+  const { data: members, isLoading } = useOrganizationMembers(orgId);
+  const inactivateMutation = useUpdateMemberStatus(orgId);
+  const deactivateMutation = useDeactivateOrganizationUser(orgId);
+  const activateMutation = useActivateOrganizationUser(orgId);
+  const deleteMutation = useDeleteOrganizationUser(orgId);
+
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingMember, setEditingMember] = useState<OrgMemberRecord | null>(null);
+  const [passwordMember, setPasswordMember] = useState<OrgMemberRecord | null>(null);
+  const [deleteMember, setDeleteMember] = useState<OrgMemberRecord | null>(null);
+
+  const openCreate = () => {
+    setEditingMember(null);
+    setFormOpen(true);
+  };
+
+  const openEdit = (member: OrgMemberRecord) => {
+    setEditingMember(member);
+    setFormOpen(true);
+  };
+
+  const inativar = async (member: OrgMemberRecord) => {
+    if (!orgId) return;
+
+    try {
+      await inactivateMutation.mutateAsync({
+        memberId: member.id,
+        organizationId: orgId,
+        status: "disabled",
+      });
+      toast.success(`Usuário "${member.fullName}" inativado.`);
+    } catch {
+      toast.error("Não foi possível inativar o usuário.");
+    }
+  };
+
+  const desativar = async (member: OrgMemberRecord) => {
+    if (!orgId) return;
+
+    try {
+      await deactivateMutation.mutateAsync({
+        organizationId: orgId,
+        userId: member.userId,
+      });
+      toast.success(`Usuário "${member.fullName}" desativado.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível desativar o usuário.");
+    }
+  };
+
+  const reativar = async (member: OrgMemberRecord) => {
+    if (!orgId) return;
+
+    try {
+      await activateMutation.mutateAsync({
+        organizationId: orgId,
+        userId: member.userId,
+      });
+      toast.success(`Usuário "${member.fullName}" reativado.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível reativar o usuário.");
+    }
+  };
+
+  const isSelf = (member: OrgMemberRecord) => member.userId === user?.id;
 
   return (
     <>
       <PageHeader
-        title="Configurações"
-        subtitle="Ajustes gerais do sistema, identidade, permissões e exportação."
-        breadcrumb={[{ label: "Configurações" }]}
+        title="Usuários"
+        subtitle="Crie e gerencie os usuários da organização, perfis, senhas e permissões de acesso."
+        breadcrumb={[{ label: "Configurações" }, { label: "Usuários" }]}
       />
 
       <div className="p-8 max-w-5xl space-y-5">
         <Card className="p-6 border-border shadow-none">
           <h3 className="font-semibold text-sm mb-4">Meu perfil</h3>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Box label="Nome">
               <Input value={profile?.full_name ?? ""} readOnly />
             </Box>
@@ -97,167 +156,148 @@ export function ConfiguracoesPage() {
         </Card>
 
         <Card className="p-6 border-border shadow-none">
-          <h3 className="font-semibold text-sm mb-4">Dados da Projetse</h3>
-          {loadingSettings ? (
-            <div className="grid grid-cols-2 gap-4">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-10" />
-              ))}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+            <div>
+              <h3 className="font-semibold text-sm">Usuários da organização</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Gerencie contas, papéis e status de acesso dos membros.
+              </p>
             </div>
+            {isAdmin ? (
+              <Button onClick={openCreate} size="sm">
+                <UserPlus className="h-4 w-4 mr-1.5" />
+                Novo usuário
+              </Button>
+            ) : null}
+          </div>
+
+          {isLoading ? (
+            <Skeleton className="h-40 w-full" />
           ) : (
-            <div className="grid grid-cols-2 gap-4">
-              <Box label="Razão social">
-                <Input
-                  value={form.razaoSocial}
-                  onChange={(e) => setForm((f) => ({ ...f, razaoSocial: e.target.value }))}
-                />
-              </Box>
-              <Box label="CNPJ">
-                <Input
-                  value={form.cnpj}
-                  onChange={(e) => setForm((f) => ({ ...f, cnpj: e.target.value }))}
-                />
-              </Box>
-              <Box label="Endereço">
-                <Input
-                  value={form.endereco}
-                  onChange={(e) => setForm((f) => ({ ...f, endereco: e.target.value }))}
-                />
-              </Box>
-              <Box label="Responsável técnica">
-                <Input
-                  value={form.responsavelTecnico}
-                  onChange={(e) => setForm((f) => ({ ...f, responsavelTecnico: e.target.value }))}
-                />
-              </Box>
-            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Usuário</TableHead>
+                  <TableHead>Papel</TableHead>
+                  <TableHead>Status</TableHead>
+                  {isAdmin ? <TableHead className="text-right">Ações</TableHead> : null}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(members ?? []).map((member) => (
+                  <TableRow key={member.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-9 w-9 rounded-full bg-[var(--color-verde-escuro)] text-primary-foreground flex items-center justify-center text-xs font-semibold shrink-0">
+                          {getInitials(member.fullName)}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium truncate">{member.fullName}</div>
+                          <div className="text-xs text-muted-foreground truncate">{member.email}</div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm">{ROLE_LABELS[member.role]}</TableCell>
+                    <TableCell>
+                      <Badge variant={statusBadgeVariant(member.status)}>
+                        {MEMBER_STATUS_LABELS[member.status]}
+                      </Badge>
+                    </TableCell>
+                    {isAdmin ? (
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            title="Editar"
+                            onClick={() => openEdit(member)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            title="Definir senha"
+                            onClick={() => setPasswordMember(member)}
+                          >
+                            <KeyRound className="h-4 w-4" />
+                          </Button>
+
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {member.status === "active" ? (
+                                <>
+                                  <DropdownMenuItem
+                                    disabled={isSelf(member) || inactivateMutation.isPending}
+                                    onClick={() => void inativar(member)}
+                                  >
+                                    <PowerOff className="h-4 w-4 mr-2" />
+                                    Inativar
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    disabled={isSelf(member) || deactivateMutation.isPending}
+                                    onClick={() => void desativar(member)}
+                                  >
+                                    <Power className="h-4 w-4 mr-2" />
+                                    Desativar
+                                  </DropdownMenuItem>
+                                </>
+                              ) : (
+                                <DropdownMenuItem
+                                  disabled={activateMutation.isPending}
+                                  onClick={() => void reativar(member)}
+                                >
+                                  <Power className="h-4 w-4 mr-2" />
+                                  Reativar
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                disabled={isSelf(member) || deleteMutation.isPending}
+                                onClick={() => setDeleteMember(member)}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Excluir
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </TableCell>
+                    ) : null}
+                  </TableRow>
+                ))}
+                {(members ?? []).length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={isAdmin ? 4 : 3} className="text-center text-muted-foreground py-8">
+                      Nenhum usuário cadastrado.
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </TableBody>
+            </Table>
           )}
         </Card>
-
-        <Card className="p-6 border-border shadow-none">
-          <h3 className="font-semibold text-sm mb-4">Identidade visual</h3>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {[
-              { n: "Verde Escuro", c: "var(--color-verde-escuro)" },
-              { n: "Verde", c: "var(--color-verde)" },
-              { n: "Verde Claro", c: "var(--color-verde-claro)" },
-              { n: "Brita", c: "var(--color-brita)" },
-              { n: "Concreto", c: "var(--color-concreto)" },
-            ].map((s) => (
-              <div key={s.n} className="border border-border rounded-md overflow-hidden">
-                <div className="h-16" style={{ background: s.c }} />
-                <div className="px-3 py-2 text-xs">
-                  <div className="font-medium">{s.n}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <Card className="p-6 border-border shadow-none">
-          <h3 className="font-semibold text-sm mb-4">Usuários e permissões</h3>
-          {loadingMembers ? (
-            <Skeleton className="h-16 w-full" />
-          ) : (
-            <div className="divide-y divide-border">
-              {(members ?? []).map((u) => (
-                <div key={u.id} className="flex items-center justify-between py-3 gap-4">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-9 w-9 rounded-full bg-[var(--color-verde-escuro)] text-primary-foreground flex items-center justify-center text-xs font-semibold shrink-0">
-                      {u.fullName
-                        .split(" ")
-                        .map((p) => p[0])
-                        .slice(0, 2)
-                        .join("")}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium truncate">{u.fullName}</div>
-                      <div className="text-xs text-muted-foreground truncate">{u.email}</div>
-                    </div>
-                  </div>
-                  {isAdmin ? (
-                    <Select
-                      value={u.role}
-                      onValueChange={(v) => void alterarPapel(u.id, v as OrgRole)}
-                      disabled={roleMutation.isPending}
-                    >
-                      <SelectTrigger className="w-[180px] h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ROLES.map((r) => (
-                          <SelectItem key={r} value={r}>
-                            {ROLE_LABELS[r]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">{ROLE_LABELS[u.role]}</span>
-                  )}
-                </div>
-              ))}
-              {(members ?? []).length === 0 && (
-                <p className="text-sm text-muted-foreground py-4">Nenhum membro ativo.</p>
-              )}
-            </div>
-          )}
-        </Card>
-
-        <Card className="p-6 border-border shadow-none">
-          <h3 className="font-semibold text-sm mb-4">Preferências de exportação</h3>
-          <div className="space-y-4">
-            <Toggle
-              label="Incluir cabeçalho com logo Projetse"
-              checked={form.exportPrefs.incluirLogo}
-              onCheckedChange={(v) =>
-                setForm((f) => ({ ...f, exportPrefs: { ...f.exportPrefs, incluirLogo: v } }))
-              }
-            />
-            <Toggle
-              label="Numerar páginas automaticamente"
-              checked={form.exportPrefs.numerarPaginas}
-              onCheckedChange={(v) =>
-                setForm((f) => ({ ...f, exportPrefs: { ...f.exportPrefs, numerarPaginas: v } }))
-              }
-            />
-            <Toggle
-              label="Inserir marca d'água em versões de revisão"
-              checked={form.exportPrefs.marcaDaguaRevisao}
-              onCheckedChange={(v) =>
-                setForm((f) => ({ ...f, exportPrefs: { ...f.exportPrefs, marcaDaguaRevisao: v } }))
-              }
-            />
-            <Toggle
-              label="Anexar quadros NBR 12.721 ao final do documento"
-              checked={form.exportPrefs.anexarQuadros}
-              onCheckedChange={(v) =>
-                setForm((f) => ({ ...f, exportPrefs: { ...f.exportPrefs, anexarQuadros: v } }))
-              }
-            />
-          </div>
-        </Card>
-
-        <Card className="p-6 border-border shadow-none">
-          <h3 className="font-semibold text-sm mb-4">Status do sistema</h3>
-          <div className="space-y-2 text-sm">
-            <StatusItem label="Esteira de extração" />
-            <StatusItem label="Geração de memorial" />
-            <StatusItem label="Exportações DOCX/PDF" />
-            <StatusItem label="Histórico e versionamento" />
-          </div>
-        </Card>
-
-        <div className="flex justify-end">
-          <Button
-            disabled={saveMutation.isPending || loadingSettings}
-            onClick={() => void salvar()}
-          >
-            {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Salvar configurações
-          </Button>
-        </div>
       </div>
+
+      <UsuarioFormDialog open={formOpen} onOpenChange={setFormOpen} member={editingMember} />
+      <UsuarioSenhaDialog
+        open={passwordMember !== null}
+        onOpenChange={(open) => !open && setPasswordMember(null)}
+        member={passwordMember}
+      />
+      <ExcluirUsuarioDialog
+        member={deleteMember}
+        open={deleteMember !== null}
+        onOpenChange={(open) => !open && setDeleteMember(null)}
+      />
     </>
   );
 }
@@ -267,34 +307,6 @@ function Box({ label, children }: { label: string; children: React.ReactNode }) 
     <div>
       <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">{label}</Label>
       {children}
-    </div>
-  );
-}
-
-function Toggle({
-  label,
-  checked,
-  onCheckedChange,
-}: {
-  label: string;
-  checked: boolean;
-  onCheckedChange: (v: boolean) => void;
-}) {
-  return (
-    <label className="flex items-center justify-between cursor-pointer">
-      <span className="text-sm">{label}</span>
-      <Switch checked={checked} onCheckedChange={onCheckedChange} />
-    </label>
-  );
-}
-
-function StatusItem({ label }: { label: string }) {
-  return (
-    <div className="flex items-center justify-between py-1.5 border-b border-border last:border-0">
-      <span>{label}</span>
-      <span className="flex items-center gap-1.5 text-xs font-medium text-[var(--color-verde-escuro)]">
-        <CheckCircle2 className="h-3.5 w-3.5 text-[var(--color-verde-claro)]" /> Operacional
-      </span>
     </div>
   );
 }

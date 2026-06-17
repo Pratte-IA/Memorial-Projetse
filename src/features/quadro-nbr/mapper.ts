@@ -1,5 +1,12 @@
 import type { CreateEmpreendimentoInput } from "@/features/empreendimentos/types";
-import { fmtArea, fmtNum, formatBrDateDisplay, parseBrNumeric, parseLoteQuadra } from "@/lib/format";
+import {
+  fmtArea,
+  fmtNum,
+  formatBrDateDisplay,
+  parseBrNumeric,
+  parseCidadeUf,
+  parseLoteQuadra,
+} from "@/lib/format";
 
 import { buildQivbVagaLookup, buildUnidadeVagaLookupKeys, extractVaga, lookupVagaInfo, normalizeDesignacao } from "./extract-vaga";
 import { resolvePosicaoUnidadeFromDocumento } from "./resolve-posicao-unidade";
@@ -19,11 +26,6 @@ import { getQuadroById } from "./parser";
 
 function getCampoValor(documento: DocumentoNbrExtraido, chave: string): string {
   return documento.preliminares.campos.find((c) => c.chave === chave)?.valor ?? "";
-}
-
-function parseCidadeUf(raw: string): { cidade: string; uf: string } {
-  const parts = raw.split("/").map((s) => s.trim());
-  return { cidade: parts[0] ?? "", uf: parts[1] ?? "" };
 }
 
 function parseIntFromText(raw: string): number {

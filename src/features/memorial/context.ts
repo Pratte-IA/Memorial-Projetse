@@ -4,6 +4,7 @@ import {
   formatDateBr,
   normalizeLoteQuadraFields,
   parseBrNumeric,
+  parseCidadeUf,
   parseLoteQuadra,
   stripLoteamentoPrefix,
   ufPorExtenso,
@@ -75,6 +76,14 @@ function formatMoeda(valor: number): { texto: string; extenso: string } {
 function parseExtraNumero(raw: string | undefined): number {
   const parsed = parseBrNumeric(raw ?? "");
   return parsed ?? NaN;
+}
+
+function comarcaLabel(...candidates: Array<string | null | undefined>): string {
+  for (const raw of candidates) {
+    const trimmed = raw?.trim();
+    if (trimmed) return trimmed.toUpperCase();
+  }
+  return "—";
 }
 
 function formatMesReferenciaCub(raw: string | undefined): string {
@@ -263,6 +272,7 @@ export async function fetchMemorialContext(empreendimentoId: number): Promise<Me
         "orgao_aprovacao",
         "prefeitura_aprovacao",
         "cartorio_cidade",
+        "projeto_cidade_uf",
       ]),
     loadLatestQuadroDocumento(empreendimentoId),
   ]);
@@ -292,10 +302,33 @@ export async function fetchMemorialContext(empreendimentoId: number): Promise<Me
         imovel?.quadra_numero ?? empRow.quadra ?? "",
       );
 
-  const comarcaRaw = imovel?.comarca ?? imovel?.cidade ?? emp.cidade;
-  const comarca = comarcaRaw?.trim() ? comarcaRaw.trim().toUpperCase() : "—";
-  const ufSigla = String(imovel?.uf ?? emp.uf ?? "").trim().toUpperCase();
+  const projetoCidadeUf = parseCidadeUf(extraMap.get("projeto_cidade_uf") ?? "");
+  const cartorioCidadeUf = parseCidadeUf(extraMap.get("cartorio_cidade") ?? "");
+  const comarcaImovel = comarcaLabel(
+    projetoCidadeUf.cidade,
+    imovel?.comarca,
+    imovel?.cidade,
+    emp.cidade,
+  );
+  const comarcaEmpreendimento = comarcaLabel(
+    cartorioCidadeUf.cidade,
+    projetoCidadeUf.cidade,
+    imovel?.comarca,
+    emp.cidade,
+  );
+  const ufSigla = (
+    projetoCidadeUf.uf ||
+    imovel?.uf ||
+    emp.uf ||
+    cartorioCidadeUf.uf ||
+    ""
+  )
+    .trim()
+    .toUpperCase();
   const ufExtenso = ufPorExtenso(ufSigla) || "—";
+  const cidadeImovel = dash(
+    projetoCidadeUf.cidade || imovel?.cidade || emp.cidade,
+  );
 
   const areaGlobal = areaPair(dados?.area_global != null ? Number(dados.area_global) : null);
   const areaPrivativa = areaPair(
@@ -350,7 +383,7 @@ export async function fetchMemorialContext(empreendimentoId: number): Promise<Me
       endereco: dash(emp.endereco),
       cidade: dash(emp.cidade),
       uf: dash(emp.uf),
-      comarca,
+      comarca: comarcaEmpreendimento,
       areaGlobal: areaGlobal.texto,
       areaTotalEdificada: areaGlobal.texto,
       areaTotalEdificadaExtenso: areaGlobal.extenso,
@@ -383,8 +416,8 @@ export async function fetchMemorialContext(empreendimentoId: number): Promise<Me
         if (!nome) return "—";
         return stripLoteamentoPrefix(nome) || "—";
       })(),
-      comarca,
-      cidade: dash(imovel?.cidade ?? emp.cidade),
+      comarca: comarcaImovel,
+      cidade: cidadeImovel,
       uf: ufSigla || "—",
       ufExtenso,
       area:

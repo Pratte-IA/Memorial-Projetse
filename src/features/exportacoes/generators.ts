@@ -33,7 +33,7 @@ function pdfLiteralString(text: string): string {
 }
 
 function buildPageStream(lines: string[]): string {
-  const commands: string[] = ["BT", "/F1 10 Tf", "50 750 Td", "14 TL"];
+  const commands: string[] = ["BT", "/F1 10 Tf", "50 750 Td", "17 TL"];
   let first = true;
 
   for (const line of lines) {

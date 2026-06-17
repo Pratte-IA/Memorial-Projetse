@@ -14,7 +14,6 @@ import { Route as EsqueciSenhaRouteImport } from './routes/esqueci-senha'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
 import { Route as AppModelosRouteImport } from './routes/_app.modelos'
-import { Route as AppHistoricoRouteImport } from './routes/_app.historico'
 import { Route as AppConfiguracoesRouteImport } from './routes/_app.configuracoes'
 import { Route as AppClausulasRouteImport } from './routes/_app.clausulas'
 import { Route as AppEmpreendimentosIndexRouteImport } from './routes/_app.empreendimentos.index'
@@ -43,11 +42,6 @@ const AppIndexRoute = AppIndexRouteImport.update({
 const AppModelosRoute = AppModelosRouteImport.update({
   id: '/modelos',
   path: '/modelos',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppHistoricoRoute = AppHistoricoRouteImport.update({
-  id: '/historico',
-  path: '/historico',
   getParentRoute: () => AppRoute,
 } as any)
 const AppConfiguracoesRoute = AppConfiguracoesRouteImport.update({
@@ -82,7 +76,6 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/clausulas': typeof AppClausulasRoute
   '/configuracoes': typeof AppConfiguracoesRoute
-  '/historico': typeof AppHistoricoRoute
   '/modelos': typeof AppModelosRoute
   '/empreendimentos/$id': typeof AppEmpreendimentosIdRoute
   '/empreendimentos/novo': typeof AppEmpreendimentosNovoRoute
@@ -93,7 +86,6 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/clausulas': typeof AppClausulasRoute
   '/configuracoes': typeof AppConfiguracoesRoute
-  '/historico': typeof AppHistoricoRoute
   '/modelos': typeof AppModelosRoute
   '/': typeof AppIndexRoute
   '/empreendimentos/$id': typeof AppEmpreendimentosIdRoute
@@ -107,7 +99,6 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_app/clausulas': typeof AppClausulasRoute
   '/_app/configuracoes': typeof AppConfiguracoesRoute
-  '/_app/historico': typeof AppHistoricoRoute
   '/_app/modelos': typeof AppModelosRoute
   '/_app/': typeof AppIndexRoute
   '/_app/empreendimentos/$id': typeof AppEmpreendimentosIdRoute
@@ -122,7 +113,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/clausulas'
     | '/configuracoes'
-    | '/historico'
     | '/modelos'
     | '/empreendimentos/$id'
     | '/empreendimentos/novo'
@@ -133,7 +123,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/clausulas'
     | '/configuracoes'
-    | '/historico'
     | '/modelos'
     | '/'
     | '/empreendimentos/$id'
@@ -146,7 +135,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/_app/clausulas'
     | '/_app/configuracoes'
-    | '/_app/historico'
     | '/_app/modelos'
     | '/_app/'
     | '/_app/empreendimentos/$id'
@@ -197,13 +185,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppModelosRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/historico': {
-      id: '/_app/historico'
-      path: '/historico'
-      fullPath: '/historico'
-      preLoaderRoute: typeof AppHistoricoRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/configuracoes': {
       id: '/_app/configuracoes'
       path: '/configuracoes'
@@ -245,7 +226,6 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppClausulasRoute: typeof AppClausulasRoute
   AppConfiguracoesRoute: typeof AppConfiguracoesRoute
-  AppHistoricoRoute: typeof AppHistoricoRoute
   AppModelosRoute: typeof AppModelosRoute
   AppIndexRoute: typeof AppIndexRoute
   AppEmpreendimentosIdRoute: typeof AppEmpreendimentosIdRoute
@@ -256,7 +236,6 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppClausulasRoute: AppClausulasRoute,
   AppConfiguracoesRoute: AppConfiguracoesRoute,
-  AppHistoricoRoute: AppHistoricoRoute,
   AppModelosRoute: AppModelosRoute,
   AppIndexRoute: AppIndexRoute,
   AppEmpreendimentosIdRoute: AppEmpreendimentosIdRoute,

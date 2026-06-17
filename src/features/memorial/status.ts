@@ -38,6 +38,16 @@ export function resolveSecaoStatusLabel(status: string): string {
   return status;
 }
 
+/** Preâmbulo / qualificação da incorporadora (ordem 0, sem título no documento exportado). */
+export function isQualificacaoSection(secao: { titulo: string; ordem: number }): boolean {
+  if (secao.ordem <= 0) return true;
+  const normalized = secao.titulo
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "");
+  return normalized.includes("qualificacao");
+}
+
 export function isUnidadesSection(titulo: string): boolean {
   const normalized = titulo
     .toLowerCase()

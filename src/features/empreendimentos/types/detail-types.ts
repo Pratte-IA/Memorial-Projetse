@@ -3,8 +3,7 @@ export type EmpreendimentoDetailAba =
   | "dados-validados"
   | "visao"
   | "memorial"
-  | "exportacoes"
-  | "historico";
+  | "exportacoes";
 
 export type Representante = {
   id: string;

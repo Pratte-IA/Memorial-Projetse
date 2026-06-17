@@ -37,6 +37,32 @@ export async function persistDocumentoEdits(input: {
   const wizard = mapDocumentoToWizardInput(documento, organizationId, profileId);
 
   await supabase
+    .from("empreendimentos")
+    .update({
+      cidade: wizard.localizacao.cidade || null,
+      uf: wizard.localizacao.uf || null,
+      endereco: wizard.localizacao.endereco || null,
+      lote: wizard.localizacao.lote || null,
+      quadra: wizard.localizacao.quadra || null,
+    })
+    .eq("id", empreendimentoId)
+    .then(({ error }) => {
+      if (error) throw error;
+    });
+
+  await supabase
+    .from("imoveis")
+    .update({
+      cidade: wizard.localizacao.cidade || null,
+      uf: wizard.localizacao.uf || null,
+      comarca: wizard.localizacao.cidade || null,
+    })
+    .eq("empreendimento_id", empreendimentoId)
+    .then(({ error }) => {
+      if (error) throw error;
+    });
+
+  await supabase
     .from("dados_tecnicos")
     .update({
       area_terreno: parseBrNumeric(wizard.areas.terreno),

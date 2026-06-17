@@ -1,12 +1,27 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
+  activateOrganizationUser,
+  createOrganizationUser,
+  deactivateOrganizationUser,
+  deleteOrganizationUser,
   fetchOrganizationMembers,
   fetchOrganizationSettings,
   saveOrganizationSettings,
   updateMemberRole,
+  updateMemberStatus,
+  updateOrganizationUserPassword,
+  updateOrganizationUserProfile,
 } from "./api";
-import type { SaveSettingsInput, UpdateMemberRoleInput } from "./types";
+import type {
+  CreateUserInput,
+  SaveSettingsInput,
+  UpdateMemberRoleInput,
+  UpdateMemberStatusInput,
+  UpdateUserPasswordInput,
+  UpdateUserProfileInput,
+  UserActionInput,
+} from "./types";
 
 export function settingsQueryKey(organizationId: number) {
   return ["org-settings", organizationId] as const;
@@ -45,15 +60,81 @@ export function useSaveOrganizationSettings(organizationId: number | null) {
   });
 }
 
-export function useUpdateMemberRole(organizationId: number | null) {
+function useInvalidateMembers(organizationId: number | null) {
   const queryClient = useQueryClient();
+
+  return () => {
+    if (organizationId) {
+      void queryClient.invalidateQueries({ queryKey: membersQueryKey(organizationId) });
+    }
+  };
+}
+
+export function useUpdateMemberRole(organizationId: number | null) {
+  const invalidate = useInvalidateMembers(organizationId);
 
   return useMutation({
     mutationFn: (input: UpdateMemberRoleInput) => updateMemberRole(input),
-    onSuccess: () => {
-      if (organizationId) {
-        void queryClient.invalidateQueries({ queryKey: membersQueryKey(organizationId) });
-      }
-    },
+    onSuccess: invalidate,
+  });
+}
+
+export function useUpdateMemberStatus(organizationId: number | null) {
+  const invalidate = useInvalidateMembers(organizationId);
+
+  return useMutation({
+    mutationFn: (input: UpdateMemberStatusInput) => updateMemberStatus(input),
+    onSuccess: invalidate,
+  });
+}
+
+export function useCreateOrganizationUser(organizationId: number | null) {
+  const invalidate = useInvalidateMembers(organizationId);
+
+  return useMutation({
+    mutationFn: (input: CreateUserInput) => createOrganizationUser(input),
+    onSuccess: invalidate,
+  });
+}
+
+export function useUpdateOrganizationUserProfile(organizationId: number | null) {
+  const invalidate = useInvalidateMembers(organizationId);
+
+  return useMutation({
+    mutationFn: (input: UpdateUserProfileInput) => updateOrganizationUserProfile(input),
+    onSuccess: invalidate,
+  });
+}
+
+export function useUpdateOrganizationUserPassword(organizationId: number | null) {
+  return useMutation({
+    mutationFn: (input: UpdateUserPasswordInput) => updateOrganizationUserPassword(input),
+  });
+}
+
+export function useDeactivateOrganizationUser(organizationId: number | null) {
+  const invalidate = useInvalidateMembers(organizationId);
+
+  return useMutation({
+    mutationFn: (input: UserActionInput) => deactivateOrganizationUser(input),
+    onSuccess: invalidate,
+  });
+}
+
+export function useActivateOrganizationUser(organizationId: number | null) {
+  const invalidate = useInvalidateMembers(organizationId);
+
+  return useMutation({
+    mutationFn: (input: UserActionInput) => activateOrganizationUser(input),
+    onSuccess: invalidate,
+  });
+}
+
+export function useDeleteOrganizationUser(organizationId: number | null) {
+  const invalidate = useInvalidateMembers(organizationId);
+
+  return useMutation({
+    mutationFn: (input: UserActionInput) => deleteOrganizationUser(input),
+    onSuccess: invalidate,
   });
 }

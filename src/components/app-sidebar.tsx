@@ -4,7 +4,6 @@ import {
   Building2,
   FileText,
   BookOpen,
-  History,
   Settings,
   LogOut,
 } from "lucide-react";
@@ -30,7 +29,6 @@ const nav = [
   { to: "/empreendimentos", label: "Empreendimentos", icon: Building2 },
   { to: "/modelos", label: "Modelos de Documento", icon: FileText },
   { to: "/clausulas", label: "Biblioteca de Cláusulas", icon: BookOpen },
-  { to: "/historico", label: "Histórico", icon: History },
   { to: "/configuracoes", label: "Configurações", icon: Settings, requiresSettings: true },
 ];
 

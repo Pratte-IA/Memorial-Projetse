@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Bold, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -23,8 +23,10 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 
 import { useUpdateClausula } from "../hooks";
+import { renderClausulaTemplatePreview } from "../render-clausula-template";
 import type { ClausulaRecord, ClausulaStatus } from "../types";
-import { extractVariaveisFromTemplate } from "../utils";
+import { extractVariaveisFromTemplate, wrapTextRangeWithAsterisks } from "../utils";
+import { ClausulaNegritoGuia } from "./clausula-negrito-guia";
 
 interface EditarClausulaDialogProps {
   open: boolean;
@@ -46,6 +48,7 @@ export function EditarClausulaDialog({
   onSaved,
 }: EditarClausulaDialogProps) {
   const updateMutation = useUpdateClausula(organizationId);
+  const templateRef = useRef<HTMLTextAreaElement>(null);
 
   const [titulo, setTitulo] = useState(clausula.titulo);
   const [categoria, setCategoria] = useState(clausula.categoria);
@@ -70,6 +73,23 @@ export function EditarClausulaDialog({
     } else if (nextOpen) {
       onOpenChange(true);
     }
+  };
+
+  const handleNegritarSelecao = () => {
+    const el = templateRef.current;
+    if (!el) return;
+
+    const result = wrapTextRangeWithAsterisks(el.value, el.selectionStart, el.selectionEnd);
+    if (!result) {
+      toast.error("Selecione no template o trecho que deve ficar em negrito.");
+      return;
+    }
+
+    setTemplate(result.next);
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(result.selectionStart, result.selectionEnd);
+    });
   };
 
   const handleSubmit = async () => {
@@ -102,7 +122,7 @@ export function EditarClausulaDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Editar cláusula</DialogTitle>
           <DialogDescription>
@@ -112,6 +132,8 @@ export function EditarClausulaDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          <ClausulaNegritoGuia />
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="clausula-titulo">Título</Label>
@@ -161,12 +183,26 @@ export function EditarClausulaDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="clausula-template">Template</Label>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Label htmlFor="clausula-template">Template</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8"
+                disabled={updateMutation.isPending}
+                onClick={handleNegritarSelecao}
+              >
+                <Bold className="h-3.5 w-3.5" />
+                Negritar seleção
+              </Button>
+            </div>
             <Textarea
+              ref={templateRef}
               id="clausula-template"
               value={template}
               onChange={(e) => setTemplate(e.target.value)}
-              rows={12}
+              rows={10}
               className="text-sm leading-7 resize-y font-mono"
               disabled={updateMutation.isPending}
             />
@@ -182,6 +218,15 @@ export function EditarClausulaDialog({
                 ))}
               </div>
             )}
+          </div>
+
+          <div className="space-y-2 rounded-lg border border-border bg-muted/20 p-4">
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              Pré-visualização (como no PDF)
+            </div>
+            <div className="text-sm leading-7 text-foreground whitespace-pre-wrap">
+              {renderClausulaTemplatePreview(template)}
+            </div>
           </div>
         </div>
 

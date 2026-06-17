@@ -1,5 +1,7 @@
 import type { OrgRole } from "@/features/auth/types";
 
+export type MemberStatus = "active" | "invited" | "disabled";
+
 export interface ExportPrefs {
   incluirLogo: boolean;
   numerarPaginas: boolean;
@@ -18,16 +20,51 @@ export interface OrganizationSettings {
 export interface OrgMemberRecord {
   id: number;
   profileId: number;
+  userId: string;
   fullName: string;
   email: string;
   role: OrgRole;
-  status: string;
+  status: MemberStatus;
 }
 
 export interface UpdateMemberRoleInput {
   memberId: number;
   organizationId: number;
   role: OrgRole;
+}
+
+export interface UpdateMemberStatusInput {
+  memberId: number;
+  organizationId: number;
+  status: MemberStatus;
+}
+
+export interface CreateUserInput {
+  organizationId: number;
+  fullName: string;
+  email: string;
+  password: string;
+  role: OrgRole;
+}
+
+export interface UpdateUserProfileInput {
+  organizationId: number;
+  userId: string;
+  fullName: string;
+  email: string;
+  role: OrgRole;
+  memberId: number;
+}
+
+export interface UpdateUserPasswordInput {
+  organizationId: number;
+  userId: string;
+  password: string;
+}
+
+export interface UserActionInput {
+  organizationId: number;
+  userId: string;
 }
 
 export interface SaveSettingsInput {

@@ -104,5 +104,4 @@ export const EMPREENDIMENTO_DETAIL_ABAS: {
   { id: "visao", label: "Cadastro complementar" },
   { id: "memorial", label: "Memorial" },
   { id: "exportacoes", label: "Exportações" },
-  { id: "historico", label: "Histórico" },
 ];
