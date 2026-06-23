@@ -13,6 +13,7 @@ import "../lib/error-capture";
 import { logError } from "@/lib/log-error";
 
 import appCss from "../styles.css?url";
+import { brandFaviconLinks } from "@/lib/brand-favicon";
 
 function NotFoundComponent() {
   return (
@@ -90,6 +91,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "author", content: "Projetse" },
     ],
     links: [
+      ...brandFaviconLinks,
       { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "" },

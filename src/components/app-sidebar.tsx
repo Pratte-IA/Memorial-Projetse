@@ -10,6 +10,7 @@ import {
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { BrandIcon } from "@/components/brand/brand-icon";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -72,8 +73,8 @@ export function AppSidebar() {
     >
       <div className="px-6 py-6 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-md bg-sidebar-primary/15 border border-sidebar-border flex items-center justify-center">
-            <span className="text-sidebar-primary-foreground text-lg font-semibold">π</span>
+          <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md border border-sidebar-border">
+            <BrandIcon />
           </div>
           <div className="leading-tight">
             <div className="text-sm font-semibold tracking-wide">PROJETSE</div>
