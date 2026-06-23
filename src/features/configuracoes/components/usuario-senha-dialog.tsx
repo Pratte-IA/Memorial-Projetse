@@ -65,7 +65,7 @@ export function UsuarioSenhaDialog({ open, onOpenChange, member }: UsuarioSenhaD
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Definir senha</DialogTitle>
+          <DialogTitle>Redefinir senha</DialogTitle>
           <DialogDescription>
             Cadastre uma nova senha para{" "}
             <span className="font-medium text-foreground">{member?.fullName}</span>.

@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { KeyRound, MoreHorizontal, Pencil, Power, PowerOff, Trash2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/page-header";
+import { RecuperarSenhaOrientacaoDialog } from "@/features/auth/components/recuperar-senha-orientacao-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -72,6 +73,21 @@ export function ConfiguracoesPage() {
   const [editingMember, setEditingMember] = useState<OrgMemberRecord | null>(null);
   const [passwordMember, setPasswordMember] = useState<OrgMemberRecord | null>(null);
   const [deleteMember, setDeleteMember] = useState<OrgMemberRecord | null>(null);
+  const [recuperarSenhaOpen, setRecuperarSenhaOpen] = useState(false);
+
+  const selfMember = useMemo<OrgMemberRecord | null>(() => {
+    if (!user || !profile || !membership || !role) return null;
+
+    return {
+      id: membership.id,
+      profileId: profile.id,
+      userId: user.id,
+      fullName: profile.full_name,
+      email: profile.email,
+      role,
+      status: membership.status as MemberStatus,
+    };
+  }, [membership, profile, role, user]);
 
   const openCreate = () => {
     setEditingMember(null);
@@ -138,7 +154,31 @@ export function ConfiguracoesPage() {
 
       <div className="p-8 max-w-5xl space-y-5">
         <Card className="p-6 border-border shadow-none">
-          <h3 className="font-semibold text-sm mb-4">Meu perfil</h3>
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+            <h3 className="font-semibold text-sm">Meu perfil</h3>
+            {isAdmin ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => selfMember && setPasswordMember(selfMember)}
+                disabled={!selfMember}
+              >
+                <KeyRound className="h-4 w-4 mr-1.5" />
+                Redefinir minha senha
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setRecuperarSenhaOpen(true)}
+              >
+                <KeyRound className="h-4 w-4 mr-1.5" />
+                Redefinir senha
+              </Button>
+            )}
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Box label="Nome">
               <Input value={profile?.full_name ?? ""} readOnly />
@@ -219,7 +259,7 @@ export function ConfiguracoesPage() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8"
-                            title="Definir senha"
+                            title="Redefinir senha"
                             onClick={() => setPasswordMember(member)}
                           >
                             <KeyRound className="h-4 w-4" />
@@ -297,6 +337,10 @@ export function ConfiguracoesPage() {
         member={deleteMember}
         open={deleteMember !== null}
         onOpenChange={(open) => !open && setDeleteMember(null)}
+      />
+      <RecuperarSenhaOrientacaoDialog
+        open={recuperarSenhaOpen}
+        onOpenChange={setRecuperarSenhaOpen}
       />
     </>
   );

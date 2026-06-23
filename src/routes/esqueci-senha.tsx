@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ForgotPasswordForm } from "@/features/auth/components/forgot-password-form";
 import { redirectIfAuthenticated } from "@/features/auth/require-auth";
 
 export const Route = createFileRoute("/esqueci-senha")({
@@ -17,13 +17,17 @@ function EsqueciSenhaPage() {
       <div className="w-full max-w-md space-y-6">
         <div className="text-center space-y-2">
           <h1 className="text-2xl font-semibold tracking-tight">Recuperar senha</h1>
-          <p className="text-sm text-muted-foreground">
-            Informe seu e-mail para receber um link de redefinição de senha.
-          </p>
         </div>
 
         <Card className="p-6 border-border shadow-none">
-          <ForgotPasswordForm />
+          <div className="space-y-4 text-center">
+            <p className="text-sm text-muted-foreground">
+              Fale com a administradora da Projetse para recuperar sua senha.
+            </p>
+            <Button asChild variant="outline" className="w-full">
+              <Link to="/login">Voltar ao login</Link>
+            </Button>
+          </div>
         </Card>
 
         <p className="text-center text-sm text-muted-foreground">

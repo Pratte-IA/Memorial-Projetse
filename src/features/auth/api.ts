@@ -21,12 +21,6 @@ export async function signOut() {
   if (error) throw error;
 }
 
-export async function sendPasswordReset(email: string) {
-  const redirectTo = `${window.location.origin}/login`;
-  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
-  if (error) throw error;
-}
-
 export async function fetchUserContext(userId: string): Promise<{
   profile: UserProfile | null;
   membership: OrganizationMembership | null;

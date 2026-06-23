@@ -6,7 +6,9 @@ import {
   BookOpen,
   Settings,
   LogOut,
+  KeyRound,
 } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -19,10 +21,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { RecuperarSenhaOrientacaoDialog } from "@/features/auth/components/recuperar-senha-orientacao-dialog";
 import { ROLE_LABELS } from "@/features/auth/constants";
 import { signOut } from "@/features/auth/api";
 import { useAuth } from "@/features/auth/use-auth";
-import { canAccessSettings } from "@/features/auth/permissions";
+import { canAccessSettings, canManageMembers } from "@/features/auth/permissions";
 import { cn } from "@/lib/utils";
 
 const nav = [
@@ -47,6 +50,8 @@ export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const { profile, role, organization, refresh } = useAuth();
+  const [recuperarSenhaOpen, setRecuperarSenhaOpen] = useState(false);
+  const isAdmin = canManageMembers(role);
 
   const displayName = profile?.full_name ?? "Usuário";
   const displayRole = role ? ROLE_LABELS[role] : "Sem papel";
@@ -146,6 +151,19 @@ export function AppSidebar() {
                 <Link to="/configuracoes">Configurações</Link>
               </DropdownMenuItem>
             ) : null}
+            {isAdmin ? (
+              <DropdownMenuItem asChild>
+                <Link to="/configuracoes">
+                  <KeyRound className="mr-2 h-4 w-4" />
+                  Redefinir senha
+                </Link>
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem onClick={() => setRecuperarSenhaOpen(true)}>
+                <KeyRound className="mr-2 h-4 w-4" />
+                Redefinir senha
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem
               onClick={() => void handleLogout()}
               className="text-destructive focus:text-destructive"
@@ -155,6 +173,10 @@ export function AppSidebar() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        <RecuperarSenhaOrientacaoDialog
+          open={recuperarSenhaOpen}
+          onOpenChange={setRecuperarSenhaOpen}
+        />
       </div>
     </aside>
   );
