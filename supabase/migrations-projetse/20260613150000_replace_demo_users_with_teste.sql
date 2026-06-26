@@ -58,7 +58,7 @@ begin
       'teste@projetse.com.br', v_password,
       now(),
       '', '', '', '',
-      '{"provider":"email","providers":["email"]}'::jsonb,
+      '{"provider":"email","providers":["email"],"app":"projetse"}'::jsonb,
       '{"full_name":"Usuário Teste Projetse"}'::jsonb,
       now(), now()
     );

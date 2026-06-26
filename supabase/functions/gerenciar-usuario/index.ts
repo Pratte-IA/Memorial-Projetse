@@ -148,6 +148,7 @@ Deno.serve(async (req) => {
         email,
         password,
         email_confirm: true,
+        app_metadata: { app: "projetse" },
         user_metadata: { full_name: fullName },
       });
 
